@@ -20,7 +20,8 @@
             flex-direction: column;
             height: 100vh;
             width: 100%;
-            max-width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
             background-color: white;
         }
 
@@ -87,11 +88,12 @@
             border-radius: 50%;
             cursor: pointer;
             padding: 5px 8px;
-            display: none;
+            visibility: hidden;
         }
 
-        .message:hover .delete-btn {
-            display: block;
+        .message:hover .delete-btn,
+        .delete-btn:focus {
+            visibility: visible;
         }
 
         .chat-inputs {
@@ -109,6 +111,10 @@
             margin-bottom: 10px;
         }
 
+        #password {
+            display: none; /* Hide password input initially */
+        }
+
         button {
             padding: 10px 20px;
             background-color: #0084ef;
@@ -120,6 +126,21 @@
 
         button:hover {
             background-color: #0056b3;
+        }
+
+        @media (max-width: 600px) {
+            .chat-container {
+                padding: 5px;
+            }
+
+            .message {
+                font-size: 0.9em;
+                padding: 8px;
+            }
+
+            button {
+                font-size: 0.8em;
+            }
         }
     </style>
 </head>
@@ -137,7 +158,7 @@
 
     <div class="chat-inputs">
         <input type="text" id="display-name" placeholder="Enter your display name" oninput="checkDisplayName()">
-        <input type="password" id="password" placeholder="Enter password for 'Kai'" style="display:none;">
+        <input type="password" id="password" placeholder="Enter a password to secure your display name">
         <input type="text" id="message-input" placeholder="Type a message..." onkeydown="handleKeyDown(event)">
         <button onclick="sendMessage()">Send</button>
     </div>
