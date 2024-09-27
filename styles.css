@@ -33,6 +33,8 @@ body {
 
 .chat-container {
     width: 100%;
+    max-width: 800px; /* Add a max-width for larger screens */
+    margin: 0 auto;   /* Center the container */
     height: 100%;
     background-color: #fff;
     border-radius: 8px;
@@ -63,7 +65,7 @@ body {
     max-width: 70%;
     position: relative;
     display: flex;
-    justify-content: space-between; /* Align children in a row */
+    justify-content: space-between;
 }
 
 .chat-messages .message.user {
@@ -83,8 +85,7 @@ body {
 .chat-messages .message .timestamp {
     font-size: 0.8em;
     color: #888;
-    margin-left: 10px; /* Space between text and timestamp */
-    margin-left: 15px; /* Added space to the left of the timestamp */
+    margin-left: 15px;
 }
 
 .chat-messages .message .delete-btn {
@@ -96,11 +97,12 @@ body {
     border: none;
     border-radius: 50%;
     cursor: pointer;
-    display: none;
+    visibility: hidden; /* Hide visually, not interactively */
 }
 
-.chat-messages .message:hover .delete-btn {
-    display: block;
+.chat-messages .message:hover .delete-btn,
+.chat-messages .message .delete-btn:focus {
+    visibility: visible; /* Show delete button on hover or focus */
 }
 
 .chat-input {
@@ -136,4 +138,19 @@ body {
     border-radius: 4px;
     margin-bottom: 10px;
     display: none;
+}
+
+@media (max-width: 600px) {
+    .chat-container {
+        padding: 5px;
+    }
+
+    .message {
+        font-size: 0.9em;
+        padding: 8px;
+    }
+
+    button {
+        font-size: 0.8em;
+    }
 }
