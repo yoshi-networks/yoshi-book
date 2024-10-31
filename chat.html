@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yoshi Networks Chat Room</title>
     <style>
-        body {
+        body, html {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            height: 100vh;
+            height: 100%;
             display: flex;
             flex-direction: column;
             background-color: #f4f4f4;
@@ -19,10 +19,9 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
-            width: 100%;
-            max-width: 800px;
-            margin: 0 auto;
+            width: 100vw;
             background-color: white;
+            overflow: hidden;
         }
 
         .chat-header {
@@ -88,12 +87,11 @@
             border-radius: 50%;
             cursor: pointer;
             padding: 5px 8px;
-            visibility: hidden;
+            display: none;
         }
 
-        .message:hover .delete-btn,
-        .delete-btn:focus {
-            visibility: visible;
+        .message:hover .delete-btn {
+            display: block;
         }
 
         .chat-inputs {
@@ -111,10 +109,6 @@
             margin-bottom: 10px;
         }
 
-        #password {
-            display: none; /* Hide password input initially */
-        }
-
         button {
             padding: 10px 20px;
             background-color: #0084ef;
@@ -126,21 +120,6 @@
 
         button:hover {
             background-color: #0056b3;
-        }
-
-        @media (max-width: 600px) {
-            .chat-container {
-                padding: 5px;
-            }
-
-            .message {
-                font-size: 0.9em;
-                padding: 8px;
-            }
-
-            button {
-                font-size: 0.8em;
-            }
         }
     </style>
 </head>
@@ -158,13 +137,12 @@
 
     <div class="chat-inputs">
         <input type="text" id="display-name" placeholder="Enter your display name" oninput="checkDisplayName()">
-        <input type="password" id="password" placeholder="Enter a password to secure your display name">
+        <input type="password" id="password" placeholder="Enter password for 'Kai'" style="display:none;">
         <input type="text" id="message-input" placeholder="Type a message..." onkeydown="handleKeyDown(event)">
         <button onclick="sendMessage()">Send</button>
     </div>
 </div>
 
-<!-- Include the updated JavaScript file -->
 <script type="module" src="./script.js"></script>
 
 </body>
