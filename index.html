@@ -3,44 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Call of Jacob Coming Soon!</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <title>Call of Jacob - Chat</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.1/firebase-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.1/firebase-auth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.1/firebase-database.js"></script>
+    <script src="script.js" defer></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Call of Jacob Coming Soon!</h1>
-        <h2>The 3D Shooter Game</h2>
-        <div id="cube-container"></div>
-        <button id="chat-button">Chat with Us!</button>
-    </div>
-    <script>
-        const container = document.getElementById('cube-container');
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
-        
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        container.appendChild(renderer.domElement);
-        
-        const geometry = new THREE.BoxGeometry();
-        const material = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true });
-        const cube = new THREE.Mesh(geometry, material);
-        scene.add(cube);
-        
-        camera.position.z = 5;
-        
-        function animate() {
-            requestAnimationFrame(animate);
-            cube.rotation.x += 0.01;
-            cube.rotation.y += 0.01;
-            renderer.render(scene, camera);
-        }
-        animate();
-        
-        document.getElementById('chat-button').onclick = function() {
-            window.location.href = 'chat.html';
-        };
-    </script>
+    <header>
+        <h1>Welcome to Call of Jacob Chat</h1>
+    </header>
+    <main>
+        <section id="chat-container">
+            <div id="messages"></div>
+            <input type="text" id="message-input" placeholder="Type your message here..." />
+            <button id="send-button">Send</button>
+        </section>
+    </main>
+    <footer>
+        <p>Copyright &copy; 2024 Call of Jacob. All Rights Reserved.</p>
+    </footer>
 </body>
 </html>
