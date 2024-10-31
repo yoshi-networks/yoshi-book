@@ -3,99 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home - Chat Application</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js"></script>
+    <title>Yoshibook</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="app">
-        <header>
-            <h1>Welcome to the Chat App</h1>
-            <p>Chat with friends and family.</p>
-        </header>
-        <main>
-            <h2>Login</h2>
-            <form id="login-form">
-                <input type="email" id="email" placeholder="Email" required>
-                <input type="password" id="password" placeholder="Password" required>
-                <button type="submit">Login</button>
-            </form>
-            <p id="login-error" style="color: red;"></p>
-            <h2>Sign Up</h2>
-            <form id="signup-form">
-                <input type="email" id="signup-email" placeholder="Email" required>
-                <input type="password" id="signup-password" placeholder="Password" required>
-                <button type="submit">Sign Up</button>
-            </form>
-            <p id="signup-error" style="color: red;"></p>
-            <button id="logout-btn" style="display:none;">Logout</button>
-        </main>
-        <footer>
-            <p>&copy; 2024 Chat Application</p>
-        </footer>
+    <div class="home-container">
+        <h1>Welcome to Yoshibook</h1>
+        <button onclick="window.location.href='chat.html'">Enter Yoshi Chat</button>
     </div>
-    <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDBQYp6th2xSy8uT_P0QQqKdyh3FgDC-6c",
-            authDomain: "your-project-id.firebaseapp.com",
-            databaseURL: "https://your-project-id.firebaseio.com",
-            projectId: "your-project-id",
-            storageBucket: "your-project-id.appspot.com",
-            messagingSenderId: "your-messaging-sender-id",
-            appId: "your-app-id"
-        };
-
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const database = firebase.database();
-
-        // Handle signup
-        document.getElementById('signup-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
-            try {
-                await auth.createUserWithEmailAndPassword(email, password);
-                alert('Sign up successful! Please log in.');
-            } catch (error) {
-                document.getElementById('signup-error').innerText = error.message;
-            }
-        });
-
-        // Handle login
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            try {
-                await auth.signInWithEmailAndPassword(email, password);
-                window.location.href = 'chat.html';
-            } catch (error) {
-                document.getElementById('login-error').innerText = error.message;
-            }
-        });
-
-        // Logout function
-        document.getElementById('logout-btn').addEventListener('click', async () => {
-            await auth.signOut();
-            alert('You have been logged out.');
-            window.location.href = 'index.html';
-        });
-
-        // Display logout button if user is logged in
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                document.getElementById('logout-btn').style.display = 'block';
-                document.getElementById('login-form').style.display = 'none';
-                document.getElementById('signup-form').style.display = 'none';
-            } else {
-                document.getElementById('logout-btn').style.display = 'none';
-            }
-        });
-    </script>
 </body>
 </html>
