@@ -143,7 +143,75 @@
     </div>
 </div>
 
-<script type="module" src="./script.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js"></script>
+<script>
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyDBQYp6th2xSy8uT_P0QQqKdyh3FgDC-6c",
+        authDomain: "your-project-id.firebaseapp.com",
+        databaseURL: "https://your-project-id.firebaseio.com",
+        projectId: "your-project-id",
+        storageBucket: "your-project-id.appspot.com",
+        messagingSenderId: "your-messaging-sender-id",
+        appId: "your-app-id"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    const messagesRef = database.ref('messages');
+    const chatMessagesDiv = document.getElementById('chat-messages');
+    const messageInput = document.getElementById('message-input');
+    const displayNameInput = document.getElementById('display-name');
+
+    // Function to censor profanity
+    function censorProfanity(text) {
+        const badWords = ["badword1", "badword2", "badword3"]; // Add more bad words here
+        const regex = new RegExp(`\\b(${badWords.join('|')})\\b`, 'gi');
+        return text.replace(regex, (matched) => '*'.repeat(matched.length));
+    }
+
+    // Function to send a message
+    function sendMessage() {
+        const message = messageInput.value;
+        const displayName = displayNameInput.value || 'Anonymous';
+        if (message.trim() !== '') {
+            const censoredMessage = censorProfanity(message);
+            messagesRef.push().set({ 
+                text: `${displayName}: ${censoredMessage}`, 
+                displayName: displayName 
+            });
+            messageInput.value = '';
+        }
+    }
+
+    // Listen for new messages
+    messagesRef.on('child_added', (data) => {
+        const message = data.val();
+        const messageElement = document.createElement('div');
+        messageElement.textContent = message.text;
+        chatMessagesDiv.appendChild(messageElement);
+    });
+
+    // Handle Enter key for sending messages
+    function handleKeyDown(event) {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    }
+
+    // Check if display name is empty
+    function checkDisplayName() {
+        const displayName = displayNameInput.value;
+        if (displayName) {
+            password.style.display = 'none';
+        } else {
+            password.style.display = 'block';
+        }
+    }
+</script>
 
 </body>
 </html>
