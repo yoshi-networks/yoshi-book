@@ -17,7 +17,7 @@ const database = firebase.database();
 
 // Function to sanitize and filter profanity
 function sanitizeText(text) {
-    const profanityList = ["badword1", "badword2", "badword3"]; // Add your bad words here
+    const profanityList = ["badword1", "badword2", "badword3"]; // Replace with actual bad words
     let sanitizedText = text;
 
     profanityList.forEach(word => {
