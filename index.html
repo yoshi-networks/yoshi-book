@@ -3,13 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yoshibook</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Chat Application</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+    <script src="script.js" defer></script>
+    <script src="chat.js" defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        #messagesContainer {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+            background-color: white;
+        }
+        #messageInput {
+            width: calc(100% - 100px);
+            padding: 10px;
+        }
+        #sendButton {
+            padding: 10px;
+        }
+    </style>
 </head>
 <body>
-    <div class="home-container">
-        <h1>Welcome to Yoshibook</h1>
-        <button class="btn" onclick="window.location.href='chat.html'">Enter Yoshi Chat</button>
-    </div>
+    <h1>Chat Application</h1>
+    <div id="messagesContainer"></div>
+    <input type="text" id="messageInput" placeholder="Type your message here...">
+    <button id="sendButton">Send</button>
 </body>
 </html>
