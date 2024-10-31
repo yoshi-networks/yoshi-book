@@ -3,58 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yoshi Networks</title>
+    <title>Yoshibook</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Welcome to Yoshi Networks</h1>
-            <nav>
-                <ul>
-                    <li><a href="chat.html">Chat Room</a></li>
-                    <li><a href="about.html">About Us</a></li>
-                </ul>
-            </nav>
-        </header>
-
-        <main>
-            <section class="intro">
-                <h2>Connect with Friends!</h2>
-                <p>Join our chat room to share your thoughts and ideas.</p>
-            </section>
-            <section class="features">
-                <h2>Features</h2>
-                <ul>
-                    <li>Real-time messaging</li>
-                    <li>User-friendly interface</li>
-                    <li>Secure and private</li>
-                </ul>
-            </section>
-        </main>
-
-        <footer>
-            <p>&copy; 2024 Yoshi Networks. All rights reserved.</p>
-        </footer>
+    <div class="home-container">
+        <h1>Welcome to Yoshibook</h1>
+        <button onclick="window.location.href='chat.html'">Enter Yoshi Chat</button>
     </div>
-
-    <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js"></script>
-    <script>
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDBQYp6th2xSy8uT_P0QQqKdyh3FgDC-6c",
-            authDomain: "your-project-id.firebaseapp.com",
-            databaseURL: "https://your-project-id.firebaseio.com",
-            projectId: "your-project-id",
-            storageBucket: "your-project-id.appspot.com",
-            messagingSenderId: "your-messaging-sender-id",
-            appId: "your-app-id"
-        };
-
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-    </script>
 </body>
 </html>
