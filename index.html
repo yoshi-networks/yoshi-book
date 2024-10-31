@@ -3,13 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yoshibook</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Call of Jacob Coming Soon!</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-    <div class="home-container">
-        <h1>Welcome to Yoshibook</h1>
-        <button onclick="window.location.href='chat.html'">Enter Yoshi Chat</button>
+    <div class="container">
+        <h1>Call of Jacob Coming Soon!</h1>
+        <h2>The 3D Shooter Game</h2>
+        <div id="cube-container"></div>
+        <button id="chat-button">Chat with Us!</button>
     </div>
+    <script>
+        const container = document.getElementById('cube-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+        
+        const geometry = new THREE.BoxGeometry();
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true });
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+        
+        camera.position.z = 5;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        document.getElementById('chat-button').onclick = function() {
+            window.location.href = 'chat.html';
+        };
+    </script>
 </body>
 </html>
