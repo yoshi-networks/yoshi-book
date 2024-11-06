@@ -198,3 +198,83 @@ function logout() {
 
 // Call checkAuth when the chat page loads
 document.addEventListener('DOMContentLoaded', checkAuth);
+
+// Add these functions at the end of the file
+function showLoginModal() {
+    document.getElementById('loginModal').style.display = 'flex';
+}
+
+function showSignupModal() {
+    document.getElementById('signupModal').style.display = 'flex';
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    if (event.target.className === 'modal') {
+        event.target.style.display = 'none';
+    }
+}
+
+// Update handleLogin function
+function handleLogin(event) {
+    event.preventDefault();
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+
+    const userRef = ref(database, `usedDisplayNames/${username}`);
+    get(userRef).then((snapshot) => {
+        if (snapshot.exists() && snapshot.val() === password) {
+            localStorage.setItem('yoshibook_user', username);
+            document.getElementById('loginModal').style.display = 'none';
+            updateAuthDisplay();
+        } else {
+            alert('Invalid username or password');
+        }
+    }).catch(handleFirebaseError);
+}
+
+// Add handleSignup function
+function handleSignup(event) {
+    event.preventDefault();
+    const username = document.getElementById('signupUsername').value;
+    const password = document.getElementById('signupPassword').value;
+
+    const userRef = ref(database, `usedDisplayNames/${username}`);
+    get(userRef).then((snapshot) => {
+        if (snapshot.exists()) {
+            alert('Username already taken');
+        } else {
+            set(userRef, password).then(() => {
+                localStorage.setItem('yoshibook_user', username);
+                document.getElementById('signupModal').style.display = 'none';
+                updateAuthDisplay();
+            }).catch(handleFirebaseError);
+        }
+    }).catch(handleFirebaseError);
+}
+
+// Add function to update auth display
+function updateAuthDisplay() {
+    const user = localStorage.getItem('yoshibook_user');
+    const authButtons = document.querySelector('.auth-buttons');
+    if (user) {
+        authButtons.innerHTML = `
+            <span class="user-display">Welcome, ${user}</span>
+            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
+        `;
+    } else {
+        authButtons.innerHTML = `
+            <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
+            <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
+        `;
+    }
+}
+
+// Make new functions accessible
+window.showLoginModal = showLoginModal;
+window.showSignupModal = showSignupModal;
+window.handleLogin = handleLogin;
+window.handleSignup = handleSignup;
+
+// Call updateAuthDisplay on page load
+document.addEventListener('DOMContentLoaded', updateAuthDisplay);
