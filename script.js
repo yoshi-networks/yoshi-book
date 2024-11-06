@@ -57,89 +57,94 @@ onChildAdded(messagesRef, (snapshot) => {
 
 // Function to display messages
 function displayMessage(messageData, messageKey) {
-    const chatMessages = document.getElementById('chat-messages');
+    const currentUser = localStorage.getItem('yoshibook_user');
+    const isCurrentUser = messageData.displayName === currentUser;
+    
     const messageElement = document.createElement('div');
     messageElement.classList.add('message');
-    messageElement.classList.add(messageData.isUser ? 'user' : 'other');
+    messageElement.classList.add(isCurrentUser ? 'user' : 'other');
+    
+    const sanitizedMessage = document.createElement('div');
+    sanitizedMessage.textContent = messageData.messageText;
+    
     messageElement.innerHTML = `
-        <span class="username">${messageData.displayName}:</span>
-        ${messageData.messageText}
+        <span class="username">${escapeHtml(messageData.displayName)}</span>
+        ${sanitizedMessage.innerHTML}
         <span class="timestamp">${messageData.timestamp}</span>
     `;
-    if (messageData.isUser) {
+    
+    if (isCurrentUser) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
-        deleteBtn.innerText = 'X';
+        deleteBtn.innerText = '×';
         deleteBtn.onclick = () => deleteMessage(messageKey, messageElement);
         messageElement.appendChild(deleteBtn);
     }
-    chatMessages.appendChild(messageElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    document.getElementById('chat-messages').appendChild(messageElement);
 }
+
+// Add this helper function
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// Add this at the start of the file
+const handleFirebaseError = (error) => {
+    console.error('Firebase error:', error);
+    alert('An error occurred. Please try again later.');
+};
+
+const MESSAGE_MAX_LENGTH = 500;
+const MESSAGE_COOLDOWN = 1000; // 1 second
+let lastMessageTime = 0;
 
 // Function to send message
 function sendMessage() {
+    const currentUser = checkAuth();
+    if (!currentUser) return;
+
     const messageInput = document.getElementById('message-input');
-    const displayNameInput = document.getElementById('display-name');
     const messageText = messageInput.value.trim();
-    const displayName = displayNameInput.value.trim() || 'Anonymous';
-    const timestamp = new Date().toLocaleTimeString();
+
+    if (messageText.length > MESSAGE_MAX_LENGTH) {
+        alert(`Message too long. Maximum length is ${MESSAGE_MAX_LENGTH} characters`);
+        return;
+    }
 
     console.log('Sending message:', messageText);
 
     if (messageText === '') return; // Do not send empty messages
 
-    // If the user is already authenticated for this session, no need to prompt for a password again
-    if (authenticatedUsers.has(displayName)) {
-        sendMessageToDatabase(displayName, messageText, timestamp);
-        return;
-    }
-
-    const passwordPrompt = usedDisplayNames.has(displayName) ? 
-        `Enter password for the permanent display name "${displayName}":` : 
-        `Would you like to set "${displayName}" as a permanent display name? Enter a password to confirm:`;
-
-    const password = prompt(passwordPrompt);
-    
-    if (password === null) return; // User canceled
-
-    if (usedDisplayNames.has(displayName)) {
-        // Check password for existing permanent name
-        if (usedDisplayNames.get(displayName) !== password) {
-            alert('Incorrect password for the display name.');
-            return;
-        } else {
-            // User successfully authenticated for this session
-            authenticatedUsers.add(displayName);
-        }
-    } else {
-        // Set new permanent name
-        usedDisplayNames.set(displayName, password);
-        set(ref(database, `usedDisplayNames/${displayName}`), password).catch((error) => {
-            console.error('Error saving display name:', error);
-        });
-        authenticatedUsers.add(displayName); // Authenticated immediately after setting
-    }
-
-    sendMessageToDatabase(displayName, messageText, timestamp);
+    sendMessageToDatabase(currentUser, messageText, new Date().toLocaleTimeString());
 }
 
 // Function to send message to the database
 function sendMessageToDatabase(displayName, messageText, timestamp) {
+    if (!database) {
+        handleFirebaseError(new Error('Database not initialized'));
+        return;
+    }
+
     const messageData = {
         displayName: displayName,
         messageText: messageText,
         timestamp: timestamp,
-        isUser: true
+        isUser: true,
+        createdAt: Date.now() // Add timestamp for message ordering
     };
     
-    push(messagesRef, messageData).then(() => {
-        console.log('Message sent successfully');
-    }).catch((error) => {
-        console.error('Error sending message:', error);
-    });
-
-    document.getElementById('message-input').value = ''; // Clear message input after sending
+    push(messagesRef, messageData)
+        .then(() => {
+            console.log('Message sent successfully');
+            document.getElementById('message-input').value = '';
+        })
+        .catch(handleFirebaseError);
 }
 
 // Function to handle Enter key press to send message
@@ -165,3 +170,31 @@ function deleteMessage(messageKey, messageElement) {
 // Make functions accessible in HTML
 window.sendMessage = sendMessage;
 window.handleKeyDown = handleKeyDown;
+
+// Add at the start of the file
+window.addEventListener('online', () => {
+    document.body.classList.remove('offline');
+});
+
+window.addEventListener('offline', () => {
+    document.body.classList.add('offline');
+});
+
+// Add at the start of the file
+function checkAuth() {
+    const user = localStorage.getItem('yoshibook_user');
+    if (!user) {
+        window.location.href = 'login.html';
+        return;
+    }
+    document.getElementById('current-user').textContent = user;
+    return user;
+}
+
+function logout() {
+    localStorage.removeItem('yoshibook_user');
+    window.location.href = 'login.html';
+}
+
+// Call checkAuth when the chat page loads
+document.addEventListener('DOMContentLoaded', checkAuth);
