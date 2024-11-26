@@ -18,113 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-// Auth functions
-function showLoginModal() {
-    document.getElementById('loginModal').style.display = 'flex';
-}
-
-function showSignupModal() {
-    document.getElementById('signupModal').style.display = 'flex';
-}
-
-function handleLogin(event) {
-    event.preventDefault();
-    const username = document.getElementById('loginUsername').value;
-    const password = document.getElementById('loginPassword').value;
-
-    const userRef = ref(database, `usedDisplayNames/${username}`);
-    get(userRef).then((snapshot) => {
-        if (snapshot.exists() && snapshot.val() === password) {
-            localStorage.setItem('yoshibook_user', username);
-            document.getElementById('loginModal').style.display = 'none';
-            updateAuthDisplay();
-            enableChat(); // Enable chat functionality after login
-        } else {
-            alert('Invalid username or password');
-        }
-    }).catch(handleFirebaseError);
-}
-
-function handleSignup(event) {
-    event.preventDefault();
-    const username = document.getElementById('signupUsername').value;
-    const password = document.getElementById('signupPassword').value;
-
-    const userRef = ref(database, `usedDisplayNames/${username}`);
-    get(userRef).then((snapshot) => {
-        if (snapshot.exists()) {
-            alert('Username already taken');
-        } else {
-            set(userRef, password).then(() => {
-                localStorage.setItem('yoshibook_user', username);
-                document.getElementById('signupModal').style.display = 'none';
-                updateAuthDisplay();
-                enableChat(); // Enable chat functionality after signup
-            }).catch(handleFirebaseError);
-        }
-    }).catch(handleFirebaseError);
-}
-
-function enableChat() {
-    loadMessages(); // Just load messages, don't modify chat input visibility
-}
-
-function updateAuthDisplay() {
-    const user = localStorage.getItem('yoshibook_user');
-    const authButtons = document.querySelector('.auth-buttons');
-    
-    if (user) {
-        authButtons.innerHTML = `
-            <span class="user-display">Welcome, ${user}</span>
-            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
-        `;
-    } else {
-        authButtons.innerHTML = `
-            <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
-            <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
-        `;
-    }
-    loadMessages();
-}
-
-// Make functions available globally
-window.showLoginModal = showLoginModal;
-window.showSignupModal = showSignupModal;
-window.handleLogin = handleLogin;
-window.handleSignup = handleSignup;
-window.logout = logout;
-window.sendMessage = sendMessage;
-window.deleteMessage = deleteMessage;
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    updateAuthDisplay();
-    
-    // Close modals when clicking outside
-    window.onclick = function(event) {
-        if (event.target.className === 'modal') {
-            event.target.style.display = 'none';
-        }
-    };
-});
-
-// Rest of your existing chat functionality...
-
-// Add these functions after the existing ones
-
-function logout() {
-    localStorage.removeItem('yoshibook_user');
-    updateAuthDisplay();
-}
-
-function loadMessages() {
-    const messagesRef = ref(database, 'messages');
-    onChildAdded(messagesRef, (snapshot) => {
-        const messageData = snapshot.val();
-        displayMessage(messageData, snapshot.key);
-    });
-}
-
+// Message functions
 function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
@@ -147,6 +41,29 @@ function sendMessage() {
             messageInput.value = '';
         })
         .catch(handleFirebaseError);
+}
+
+function deleteMessage(messageKey, messageElement) {
+    const user = localStorage.getItem('yoshibook_user');
+    const messageUser = messageElement.querySelector('.username').textContent;
+    
+    if (user && messageUser === user) {
+        if (confirm('Delete this message?')) {
+            remove(ref(database, `messages/${messageKey}`));
+            messageElement.remove();
+        }
+    }
+}
+
+function loadMessages() {
+    const messagesRef = ref(database, 'messages');
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.innerHTML = ''; // Clear existing messages
+    
+    onChildAdded(messagesRef, (snapshot) => {
+        const messageData = snapshot.val();
+        displayMessage(messageData, snapshot.key);
+    });
 }
 
 function displayMessage(messageData, messageKey) {
@@ -179,6 +96,75 @@ function displayMessage(messageData, messageKey) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// Auth functions
+function showLoginModal() {
+    document.getElementById('loginModal').style.display = 'flex';
+}
+
+function showSignupModal() {
+    document.getElementById('signupModal').style.display = 'flex';
+}
+
+function handleLogin(event) {
+    event.preventDefault();
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+
+    const userRef = ref(database, `usedDisplayNames/${username}`);
+    get(userRef).then((snapshot) => {
+        if (snapshot.exists() && snapshot.val() === password) {
+            localStorage.setItem('yoshibook_user', username);
+            document.getElementById('loginModal').style.display = 'none';
+            updateAuthDisplay();
+        } else {
+            alert('Invalid username or password');
+        }
+    }).catch(handleFirebaseError);
+}
+
+function handleSignup(event) {
+    event.preventDefault();
+    const username = document.getElementById('signupUsername').value;
+    const password = document.getElementById('signupPassword').value;
+
+    const userRef = ref(database, `usedDisplayNames/${username}`);
+    get(userRef).then((snapshot) => {
+        if (snapshot.exists()) {
+            alert('Username already taken');
+        } else {
+            set(userRef, password).then(() => {
+                localStorage.setItem('yoshibook_user', username);
+                document.getElementById('signupModal').style.display = 'none';
+                updateAuthDisplay();
+            }).catch(handleFirebaseError);
+        }
+    }).catch(handleFirebaseError);
+}
+
+function logout() {
+    localStorage.removeItem('yoshibook_user');
+    updateAuthDisplay();
+}
+
+function updateAuthDisplay() {
+    const user = localStorage.getItem('yoshibook_user');
+    const authButtons = document.querySelector('.auth-buttons');
+    
+    if (user) {
+        authButtons.innerHTML = `
+            <span class="user-display">Welcome, ${user}</span>
+            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
+        `;
+    } else {
+        authButtons.innerHTML = `
+            <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
+            <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
+        `;
+    }
+    loadMessages();
+}
+
+// Utility functions
 function handleKeyDown(event) {
     if (event.key === 'Enter') {
         sendMessage();
@@ -199,5 +185,25 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
-// Add these to window exports
+// Export functions to window object
+window.showLoginModal = showLoginModal;
+window.showSignupModal = showSignupModal;
+window.handleLogin = handleLogin;
+window.handleSignup = handleSignup;
+window.logout = logout;
+window.sendMessage = sendMessage;
+window.deleteMessage = deleteMessage;
 window.handleKeyDown = handleKeyDown;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    updateAuthDisplay();
+    loadMessages();
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        if (event.target.className === 'modal') {
+            event.target.style.display = 'none';
+        }
+    };
+});
