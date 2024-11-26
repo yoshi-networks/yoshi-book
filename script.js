@@ -20,6 +20,22 @@ const database = getDatabase(app);
 
 let messagesLoaded = false;
 
+// Add this bad words list near the top of the file
+const BAD_WORDS = [
+    'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
+    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
+];
+
+// Add this function for bad word filtering
+function filterBadWords(text) {
+    let filteredText = text.toLowerCase();
+    BAD_WORDS.forEach(word => {
+        const regex = new RegExp(word, 'gi');
+        filteredText = filteredText.replace(regex, '*'.repeat(word.length));
+    });
+    return filteredText;
+}
+
 // Message functions
 function sendMessage() {
     const messageInput = document.getElementById('message-input');
@@ -27,11 +43,12 @@ function sendMessage() {
 
     if (messageText === '') return;
 
+    const filteredMessage = filterBadWords(messageText);
     const user = localStorage.getItem('yoshibook_user') || 'Anonymous';
     
     const messageData = {
         displayName: user,
-        messageText: messageText,
+        messageText: filteredMessage,
         timestamp: new Date().toLocaleTimeString(),
         isUser: user !== 'Anonymous',
         createdAt: Date.now()
@@ -47,12 +64,16 @@ function sendMessage() {
 
 function deleteMessage(messageKey, messageElement) {
     const user = localStorage.getItem('yoshibook_user');
-    const messageUser = messageElement.querySelector('.username').textContent.split(':')[0];
+    const messageUser = messageElement.querySelector('.username').textContent.split(':')[0].trim();
     
     if (user && messageUser === user) {
         if (confirm('Delete this message?')) {
             const messageRef = ref(database, `messages/${messageKey}`);
-            remove(messageRef).catch(handleFirebaseError);
+            remove(messageRef)
+                .then(() => {
+                    messageElement.remove();
+                })
+                .catch(handleFirebaseError);
         }
     }
 }
@@ -109,7 +130,7 @@ function showSignupModal() {
 
 function handleLogin(event) {
     event.preventDefault();
-    const username = document.getElementById('loginUsername').value;
+    const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
 
     const userRef = ref(database, `usedDisplayNames/${username}`);
@@ -126,20 +147,34 @@ function handleLogin(event) {
 
 function handleSignup(event) {
     event.preventDefault();
-    const username = document.getElementById('signupUsername').value;
+    const username = document.getElementById('signupUsername').value.trim();
     const password = document.getElementById('signupPassword').value;
 
-    const userRef = ref(database, `usedDisplayNames/${username}`);
+    // Check for spaces and special characters
+    if (!/^[a-zA-Z0-9]+$/.test(username)) {
+        alert('Username can only contain letters and numbers');
+        return;
+    }
+
+    const normalizedUsername = username.toLowerCase(); // Convert to lowercase for comparison
+    const userRef = ref(database, 'usedDisplayNames');
+    
     get(userRef).then((snapshot) => {
-        if (snapshot.exists()) {
+        const existingUsernames = snapshot.val() || {};
+        const existingNormalizedUsernames = Object.keys(existingUsernames).map(name => name.toLowerCase());
+        
+        if (existingNormalizedUsernames.includes(normalizedUsername)) {
             alert('Username already taken');
-        } else {
-            set(userRef, password).then(() => {
+            return;
+        }
+
+        set(ref(database, `usedDisplayNames/${username}`), password)
+            .then(() => {
                 localStorage.setItem('yoshibook_user', username);
                 document.getElementById('signupModal').style.display = 'none';
                 updateAuthDisplay();
-            }).catch(handleFirebaseError);
-        }
+            })
+            .catch(handleFirebaseError);
     }).catch(handleFirebaseError);
 }
 
