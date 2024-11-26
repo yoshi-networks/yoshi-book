@@ -5,8 +5,10 @@
     --background-color: #f8fafc;
 }
 
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Poppins', sans-serif;
     background-color: var(--background-color);
     margin: 0;
     padding: 0;
@@ -292,4 +294,112 @@ body {
 
 .notification-buttons button:hover {
     opacity: 0.9;
+}
+
+/* Add homepage styles */
+.home-container {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, var(--primary-light) 0%, #ffffff 100%);
+}
+
+.home-content {
+    text-align: center;
+    padding: 2rem;
+    max-width: 600px;
+}
+
+.home-content h1 {
+    font-size: 3.5rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    font-weight: 700;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    color: #666;
+    margin-bottom: 2rem;
+}
+
+.enter-chat-btn {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 30px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.enter-chat-btn:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.btn-arrow {
+    transition: transform 0.3s ease;
+}
+
+.enter-chat-btn:hover .btn-arrow {
+    transform: translateX(5px);
+}
+
+.mascot-container {
+    margin-top: 3rem;
+    position: relative;
+}
+
+.mascot-image {
+    max-width: 200px;
+    height: auto;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* Update chat header styles */
+.header-link {
+    color: white;
+    text-decoration: none;
+    transition: opacity 0.3s ease;
+}
+
+.header-link:hover {
+    opacity: 0.9;
+}
+
+/* Update message timestamp style */
+.message {
+    position: relative;
+    padding-right: 60px; /* Make room for timestamp */
+}
+
+.message .timestamp {
+    position: absolute;
+    right: 10px;
+    bottom: 5px;
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.message.user .timestamp {
+    color: rgba(255,255,255,0.8);
+}
+
+.message.other .timestamp {
+    color: rgba(0,0,0,0.6);
 }
