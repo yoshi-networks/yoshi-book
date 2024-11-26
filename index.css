@@ -113,10 +113,12 @@ body {
     padding: 15px;
     background-color: white;
     border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
 }
 
 .chat-input input {
-    width: calc(100% - 120px);
+    flex: 1;
     padding: 12px 20px;
     border: 2px solid #eee;
     border-radius: 25px;
@@ -134,9 +136,9 @@ body {
     color: white;
     border: none;
     border-radius: 25px;
-    margin-left: 10px;
     cursor: pointer;
     transition: all 0.3s ease;
+    white-space: nowrap;
 }
 
 .chat-input button:hover {

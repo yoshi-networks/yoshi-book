@@ -18,6 +18,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
+let messagesLoaded = false;
+
 // Message functions
 function sendMessage() {
     const messageInput = document.getElementById('message-input');
@@ -31,7 +33,7 @@ function sendMessage() {
         displayName: user,
         messageText: messageText,
         timestamp: new Date().toLocaleTimeString(),
-        isUser: true,
+        isUser: user !== 'Anonymous',
         createdAt: Date.now()
     };
     
@@ -45,20 +47,23 @@ function sendMessage() {
 
 function deleteMessage(messageKey, messageElement) {
     const user = localStorage.getItem('yoshibook_user');
-    const messageUser = messageElement.querySelector('.username').textContent;
+    const messageUser = messageElement.querySelector('.username').textContent.split(':')[0];
     
     if (user && messageUser === user) {
         if (confirm('Delete this message?')) {
-            remove(ref(database, `messages/${messageKey}`));
-            messageElement.remove();
+            const messageRef = ref(database, `messages/${messageKey}`);
+            remove(messageRef).catch(handleFirebaseError);
         }
     }
 }
 
 function loadMessages() {
+    if (messagesLoaded) return;
+    messagesLoaded = true;
+
     const messagesRef = ref(database, 'messages');
     const chatMessages = document.getElementById('chat-messages');
-    chatMessages.innerHTML = ''; // Clear existing messages
+    chatMessages.innerHTML = '';
     
     onChildAdded(messagesRef, (snapshot) => {
         const messageData = snapshot.val();
@@ -74,20 +79,17 @@ function displayMessage(messageData, messageKey) {
     messageElement.classList.add('message');
     messageElement.classList.add(isCurrentUser ? 'user' : 'other');
     
-    const sanitizedMessage = document.createElement('div');
-    sanitizedMessage.textContent = messageData.messageText;
-    
     messageElement.innerHTML = `
-        <span class="username">${escapeHtml(messageData.displayName)}</span>
-        ${sanitizedMessage.innerHTML}
+        <span class="username">${escapeHtml(messageData.displayName)}:</span>
+        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
         <span class="timestamp">${messageData.timestamp}</span>
     `;
     
-    if (isCurrentUser) {
+    if (isCurrentUser && currentUser !== 'Anonymous') {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
         deleteBtn.innerText = '×';
-        deleteBtn.onclick = () => deleteMessage(messageKey, messageElement);
+        deleteBtn.onclick = () => window.deleteMessage(messageKey, messageElement);
         messageElement.appendChild(deleteBtn);
     }
     
@@ -185,15 +187,19 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
-// Export functions to window object
-window.showLoginModal = showLoginModal;
-window.showSignupModal = showSignupModal;
-window.handleLogin = handleLogin;
-window.handleSignup = handleSignup;
-window.logout = logout;
-window.sendMessage = sendMessage;
-window.deleteMessage = deleteMessage;
-window.handleKeyDown = handleKeyDown;
+// Make sure to export all functions to window
+const exportedFunctions = {
+    showLoginModal,
+    showSignupModal,
+    handleLogin,
+    handleSignup,
+    logout,
+    sendMessage,
+    deleteMessage,
+    handleKeyDown
+};
+
+Object.assign(window, exportedFunctions);
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {

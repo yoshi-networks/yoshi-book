@@ -11,8 +11,8 @@
         <div class="chat-header">
             <h2>Yoshibook Chat</h2>
             <div class="auth-buttons">
-                <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
-                <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
+                <button class="auth-btn login-btn" onclick="window.showLoginModal()">Login</button>
+                <button class="auth-btn signup-btn" onclick="window.showSignupModal()">Sign Up</button>
             </div>
         </div>
 
@@ -21,16 +21,16 @@
         </div>
 
         <div class="chat-input">
-            <input type="text" id="message-input" placeholder="Type a message..." onkeydown="handleKeyDown(event)">
-            <button onclick="sendMessage()">Send</button>
+            <input type="text" id="message-input" placeholder="Type a message..." onkeydown="window.handleKeyDown(event)">
+            <button onclick="window.sendMessage()">Send</button>
         </div>
     </div>
 
     <!-- Login Modal -->
     <div id="loginModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <h2>Login to Yoshibook</h2>
-            <form id="loginForm" onsubmit="handleLogin(event)">
+            <form id="loginForm" onsubmit="window.handleLogin(event)">
                 <input type="text" id="loginUsername" placeholder="Username" required>
                 <input type="password" id="loginPassword" placeholder="Password" required>
                 <button type="submit">Login</button>
@@ -40,9 +40,9 @@
 
     <!-- Signup Modal -->
     <div id="signupModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <h2>Create Account</h2>
-            <form id="signupForm" onsubmit="handleSignup(event)">
+            <form id="signupForm" onsubmit="window.handleSignup(event)">
                 <input type="text" id="signupUsername" placeholder="Choose Username" required>
                 <input type="password" id="signupPassword" placeholder="Choose Password" required>
                 <button type="submit">Sign Up</button>
