@@ -23,7 +23,7 @@ let messagesLoaded = false;
 // Add this bad words list near the top of the file
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
+    'damn', 'hell', 'piss', 'whore', 'slut', 'nigga', 'retard', 'nigger', 'faggot'
 ];
 
 // Add this function for bad word filtering
