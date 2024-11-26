@@ -36,6 +36,41 @@ function filterBadWords(text) {
     return filteredText;
 }
 
+// Add this cookie utility functions at the top after Firebase initialization
+function setCookie(name, value, days) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+}
+
+function getCookie(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for(let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
+
+// Add notification function
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 2000);
+}
+
 // Message functions
 function sendMessage() {
     const messageInput = document.getElementById('message-input');
@@ -67,14 +102,31 @@ function deleteMessage(messageKey, messageElement) {
     const messageUser = messageElement.querySelector('.username').textContent.split(':')[0].trim();
     
     if (user && messageUser === user) {
-        if (confirm('Delete this message?')) {
+        showNotification('Delete this message?');
+        const notification = document.querySelector('.notification');
+        
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'notification-buttons';
+        
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Delete';
+        confirmBtn.onclick = () => {
             const messageRef = ref(database, `messages/${messageKey}`);
             remove(messageRef)
                 .then(() => {
                     messageElement.remove();
+                    notification.remove();
                 })
                 .catch(handleFirebaseError);
-        }
+        };
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = () => notification.remove();
+        
+        buttonContainer.appendChild(confirmBtn);
+        buttonContainer.appendChild(cancelBtn);
+        notification.appendChild(buttonContainer);
     }
 }
 
@@ -136,9 +188,11 @@ function handleLogin(event) {
     const userRef = ref(database, `usedDisplayNames/${username}`);
     get(userRef).then((snapshot) => {
         if (snapshot.exists() && snapshot.val() === password) {
+            setCookie('yoshibook_user', username, 7); // Store for 7 days
             localStorage.setItem('yoshibook_user', username);
             document.getElementById('loginModal').style.display = 'none';
             updateAuthDisplay();
+            updateMessagePositions();
         } else {
             alert('Invalid username or password');
         }
@@ -180,7 +234,9 @@ function handleSignup(event) {
 
 function logout() {
     localStorage.removeItem('yoshibook_user');
+    document.cookie = 'yoshibook_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     updateAuthDisplay();
+    updateMessagePositions();
 }
 
 function updateAuthDisplay() {
@@ -222,6 +278,18 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
+// Add function to update message positions
+function updateMessagePositions() {
+    const currentUser = localStorage.getItem('yoshibook_user');
+    const messages = document.querySelectorAll('.message');
+    
+    messages.forEach(message => {
+        const username = message.querySelector('.username').textContent.split(':')[0].trim();
+        message.classList.remove('user', 'other');
+        message.classList.add(username === currentUser ? 'user' : 'other');
+    });
+}
+
 // Make sure to export all functions to window
 const exportedFunctions = {
     showLoginModal,
@@ -238,6 +306,10 @@ Object.assign(window, exportedFunctions);
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    const cookieUser = getCookie('yoshibook_user');
+    if (cookieUser) {
+        localStorage.setItem('yoshibook_user', cookieUser);
+    }
     updateAuthDisplay();
     loadMessages();
     
