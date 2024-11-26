@@ -1,9 +1,8 @@
-// Firebase CDN imports for browser compatibility
+// Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-analytics.js";
 import { getDatabase, ref, onChildAdded, push, remove, get, set } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
-// Your web app's Firebase configuration
+// Firebase config
 const firebaseConfig = {
     apiKey: "AIzaSyCdnPP1xNfe13SuDNuaP2rOL6_WcbPN8cI",
     authDomain: "yoshibook-ba4ca.firebaseapp.com",
@@ -17,45 +16,139 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 const database = getDatabase(app);
 
-const usedDisplayNames = new Map(); // Store display names and their passwords
-const authenticatedUsers = new Set(); // Store users who have authenticated with their password
+// Auth functions
+function showLoginModal() {
+    document.getElementById('loginModal').style.display = 'flex';
+}
 
-// Retrieve used display names from the database
-const usedDisplayNamesRef = ref(database, 'usedDisplayNames');
-get(usedDisplayNamesRef).then((snapshot) => {
-    if (snapshot.exists()) {
-        snapshot.forEach((childSnapshot) => {
-            usedDisplayNames.set(childSnapshot.key, childSnapshot.val());
-        });
+function showSignupModal() {
+    document.getElementById('signupModal').style.display = 'flex';
+}
+
+function handleLogin(event) {
+    event.preventDefault();
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+
+    const userRef = ref(database, `usedDisplayNames/${username}`);
+    get(userRef).then((snapshot) => {
+        if (snapshot.exists() && snapshot.val() === password) {
+            localStorage.setItem('yoshibook_user', username);
+            document.getElementById('loginModal').style.display = 'none';
+            updateAuthDisplay();
+            enableChat(); // Enable chat functionality after login
+        } else {
+            alert('Invalid username or password');
+        }
+    }).catch(handleFirebaseError);
+}
+
+function handleSignup(event) {
+    event.preventDefault();
+    const username = document.getElementById('signupUsername').value;
+    const password = document.getElementById('signupPassword').value;
+
+    const userRef = ref(database, `usedDisplayNames/${username}`);
+    get(userRef).then((snapshot) => {
+        if (snapshot.exists()) {
+            alert('Username already taken');
+        } else {
+            set(userRef, password).then(() => {
+                localStorage.setItem('yoshibook_user', username);
+                document.getElementById('signupModal').style.display = 'none';
+                updateAuthDisplay();
+                enableChat(); // Enable chat functionality after signup
+            }).catch(handleFirebaseError);
+        }
+    }).catch(handleFirebaseError);
+}
+
+function enableChat() {
+    loadMessages(); // Just load messages, don't modify chat input visibility
+}
+
+function updateAuthDisplay() {
+    const user = localStorage.getItem('yoshibook_user');
+    const authButtons = document.querySelector('.auth-buttons');
+    
+    if (user) {
+        authButtons.innerHTML = `
+            <span class="user-display">Welcome, ${user}</span>
+            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
+        `;
+    } else {
+        authButtons.innerHTML = `
+            <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
+            <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
+        `;
     }
+    loadMessages();
+}
+
+// Make functions available globally
+window.showLoginModal = showLoginModal;
+window.showSignupModal = showSignupModal;
+window.handleLogin = handleLogin;
+window.handleSignup = handleSignup;
+window.logout = logout;
+window.sendMessage = sendMessage;
+window.deleteMessage = deleteMessage;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    updateAuthDisplay();
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        if (event.target.className === 'modal') {
+            event.target.style.display = 'none';
+        }
+    };
 });
 
-// Clear all messages at midnight on the first day of each month
-setInterval(() => {
-    const now = new Date();
-    if (now.getDate() === 1 && now.getHours() === 0 && now.getMinutes() === 0) {
-        // Remove all messages
-        const messagesRef = ref(database, 'messages');
-        remove(messagesRef).then(() => {
-            console.log('All messages deleted.');
-        }).catch((error) => {
-            console.error('Error deleting messages:', error);
-        });
-    }
-}, 60000); // Check every minute
+// Rest of your existing chat functionality...
 
-// Function to handle new messages added to the database
-const messagesRef = ref(database, 'messages');
-onChildAdded(messagesRef, (snapshot) => {
-    const messageData = snapshot.val();
-    console.log('New message added:', messageData);
-    displayMessage(messageData, snapshot.key);
-});
+// Add these functions after the existing ones
 
-// Function to display messages
+function logout() {
+    localStorage.removeItem('yoshibook_user');
+    updateAuthDisplay();
+}
+
+function loadMessages() {
+    const messagesRef = ref(database, 'messages');
+    onChildAdded(messagesRef, (snapshot) => {
+        const messageData = snapshot.val();
+        displayMessage(messageData, snapshot.key);
+    });
+}
+
+function sendMessage() {
+    const messageInput = document.getElementById('message-input');
+    const messageText = messageInput.value.trim();
+
+    if (messageText === '') return;
+
+    const user = localStorage.getItem('yoshibook_user') || 'Anonymous';
+    
+    const messageData = {
+        displayName: user,
+        messageText: messageText,
+        timestamp: new Date().toLocaleTimeString(),
+        isUser: true,
+        createdAt: Date.now()
+    };
+    
+    const messagesRef = ref(database, 'messages');
+    push(messagesRef, messageData)
+        .then(() => {
+            messageInput.value = '';
+        })
+        .catch(handleFirebaseError);
+}
+
 function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
@@ -81,10 +174,22 @@ function displayMessage(messageData, messageKey) {
         messageElement.appendChild(deleteBtn);
     }
     
-    document.getElementById('chat-messages').appendChild(messageElement);
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// Add this helper function
+function handleKeyDown(event) {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+}
+
+function handleFirebaseError(error) {
+    console.error('Firebase error:', error);
+    alert('An error occurred. Please try again later.');
+}
+
 function escapeHtml(unsafe) {
     return unsafe
         .replace(/&/g, "&amp;")
@@ -94,187 +199,5 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
-// Add this at the start of the file
-const handleFirebaseError = (error) => {
-    console.error('Firebase error:', error);
-    alert('An error occurred. Please try again later.');
-};
-
-const MESSAGE_MAX_LENGTH = 500;
-const MESSAGE_COOLDOWN = 1000; // 1 second
-let lastMessageTime = 0;
-
-// Function to send message
-function sendMessage() {
-    const currentUser = checkAuth();
-    if (!currentUser) return;
-
-    const messageInput = document.getElementById('message-input');
-    const messageText = messageInput.value.trim();
-
-    if (messageText.length > MESSAGE_MAX_LENGTH) {
-        alert(`Message too long. Maximum length is ${MESSAGE_MAX_LENGTH} characters`);
-        return;
-    }
-
-    console.log('Sending message:', messageText);
-
-    if (messageText === '') return; // Do not send empty messages
-
-    sendMessageToDatabase(currentUser, messageText, new Date().toLocaleTimeString());
-}
-
-// Function to send message to the database
-function sendMessageToDatabase(displayName, messageText, timestamp) {
-    if (!database) {
-        handleFirebaseError(new Error('Database not initialized'));
-        return;
-    }
-
-    const messageData = {
-        displayName: displayName,
-        messageText: messageText,
-        timestamp: timestamp,
-        isUser: true,
-        createdAt: Date.now() // Add timestamp for message ordering
-    };
-    
-    push(messagesRef, messageData)
-        .then(() => {
-            console.log('Message sent successfully');
-            document.getElementById('message-input').value = '';
-        })
-        .catch(handleFirebaseError);
-}
-
-// Function to handle Enter key press to send message
-function handleKeyDown(event) {
-    if (event.key === 'Enter') {
-        sendMessage();
-    }
-}
-
-// Function to delete a message
-function deleteMessage(messageKey, messageElement) {
-    const enteredPassword = prompt('Enter password to delete this message:');
-    const displayName = messageElement.querySelector('.username').innerText.slice(0, -1);
-    
-    if (usedDisplayNames.get(displayName) === enteredPassword) {
-        remove(ref(database, `messages/${messageKey}`));
-        messageElement.remove();
-    } else {
-        alert('Incorrect password for deleting this message.');
-    }
-}
-
-// Make functions accessible in HTML
-window.sendMessage = sendMessage;
+// Add these to window exports
 window.handleKeyDown = handleKeyDown;
-
-// Add at the start of the file
-window.addEventListener('online', () => {
-    document.body.classList.remove('offline');
-});
-
-window.addEventListener('offline', () => {
-    document.body.classList.add('offline');
-});
-
-// Add at the start of the file
-function checkAuth() {
-    const user = localStorage.getItem('yoshibook_user');
-    if (!user) {
-        window.location.href = 'login.html';
-        return;
-    }
-    document.getElementById('current-user').textContent = user;
-    return user;
-}
-
-function logout() {
-    localStorage.removeItem('yoshibook_user');
-    window.location.href = 'login.html';
-}
-
-// Call checkAuth when the chat page loads
-document.addEventListener('DOMContentLoaded', checkAuth);
-
-// Add these functions at the end of the file
-function showLoginModal() {
-    document.getElementById('loginModal').style.display = 'flex';
-}
-
-function showSignupModal() {
-    document.getElementById('signupModal').style.display = 'flex';
-}
-
-// Close modals when clicking outside
-window.onclick = function(event) {
-    if (event.target.className === 'modal') {
-        event.target.style.display = 'none';
-    }
-}
-
-// Update handleLogin function
-function handleLogin(event) {
-    event.preventDefault();
-    const username = document.getElementById('loginUsername').value;
-    const password = document.getElementById('loginPassword').value;
-
-    const userRef = ref(database, `usedDisplayNames/${username}`);
-    get(userRef).then((snapshot) => {
-        if (snapshot.exists() && snapshot.val() === password) {
-            localStorage.setItem('yoshibook_user', username);
-            document.getElementById('loginModal').style.display = 'none';
-            updateAuthDisplay();
-        } else {
-            alert('Invalid username or password');
-        }
-    }).catch(handleFirebaseError);
-}
-
-// Add handleSignup function
-function handleSignup(event) {
-    event.preventDefault();
-    const username = document.getElementById('signupUsername').value;
-    const password = document.getElementById('signupPassword').value;
-
-    const userRef = ref(database, `usedDisplayNames/${username}`);
-    get(userRef).then((snapshot) => {
-        if (snapshot.exists()) {
-            alert('Username already taken');
-        } else {
-            set(userRef, password).then(() => {
-                localStorage.setItem('yoshibook_user', username);
-                document.getElementById('signupModal').style.display = 'none';
-                updateAuthDisplay();
-            }).catch(handleFirebaseError);
-        }
-    }).catch(handleFirebaseError);
-}
-
-// Add function to update auth display
-function updateAuthDisplay() {
-    const user = localStorage.getItem('yoshibook_user');
-    const authButtons = document.querySelector('.auth-buttons');
-    if (user) {
-        authButtons.innerHTML = `
-            <span class="user-display">Welcome, ${user}</span>
-            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
-        `;
-    } else {
-        authButtons.innerHTML = `
-            <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
-            <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
-        `;
-    }
-}
-
-// Make new functions accessible
-window.showLoginModal = showLoginModal;
-window.showSignupModal = showSignupModal;
-window.handleLogin = handleLogin;
-window.handleSignup = handleSignup;
-
-// Call updateAuthDisplay on page load
-document.addEventListener('DOMContentLoaded', updateAuthDisplay);
