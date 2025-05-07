@@ -21,8 +21,7 @@ const database = getDatabase(app);
 let messagesLoaded = false;
 
 // Add this bad words list near the top of the file
-const BAD_WORDS = [
-];
+const BAD_WORDS = [];
 
 // Add this function for bad word filtering
 function filterBadWords(text) {
