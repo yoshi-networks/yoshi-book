@@ -20,37 +20,22 @@ const database = getDatabase(app);
 
 let messagesLoaded = false;
 
-// Base list of forbidden words (all lowercase, no spaces/punctuation)
+// Add this bad words list near the top of the file
 const BAD_WORDS = [
-  'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-  'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai'
+    'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
+    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'nigga', 
+    'kai', 'k a i', 'k ai', 'ka i', '.kai', 'kai.', 'k.ai', 'ka.i', 'k.a.i', '_kai', 
+    'k  a  i', 'k  ai', 'ka  i', 'kai_'
 ];
 
-// Utility: escape regex‑special chars
-function escapeRegex(str) {
-  return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-
-// Pre‑build for each bad word a regex that allows any non‑alphanumeric between letters
-const BAD_WORD_REGEXPS = BAD_WORDS.map(word => {
-  // e.g. ['k','a','i'] → ['k','[^A-Za-z0-9]*','a','[^A-Za-z0-9]*','i']
-  const chars = Array.from(word).map(ch => escapeRegex(ch));
-  const pattern = chars.join('[^A-Za-z0-9]*');
-  // global, case‑insensitive
-  return new RegExp(pattern, 'gi');
-});
-
-/**
- * Replace each detected bad‑word match with a string of asterisks,
- * preserving the length of the matched substring.
- */
+// Add this function for bad word filtering
 function filterBadWords(text) {
-  return BAD_WORD_REGEXPS.reduce((txt, re) => {
-    return txt.replace(re, match => {
-      // replace only letters/digits in the match with *, keep separators if you like:
-      return match.replace(/[A-Za-z0-9]/g, '*');
+    let filteredText = text.toLowerCase();
+    BAD_WORDS.forEach(word => {
+        const regex = new RegExp(word, 'gi');
+        filteredText = filteredText.replace(regex, '*'.repeat(word.length));
     });
-  }, text);
+    return filteredText;
 }
 
 // Add this cookie utility functions at the top after Firebase initialization
