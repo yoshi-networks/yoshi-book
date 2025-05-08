@@ -14,6 +14,9 @@ const firebaseConfig = {
     databaseURL: "https://yoshibook-ba4ca-default-rtdb.firebaseio.com/"
 };
 
+
+
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
@@ -201,6 +204,18 @@ function handleLogin(event) {
     }).catch(handleFirebaseError);
 }
 
+window.toggleEmojiKeyboard = function () {
+    const picker = document.getElementById('emoji-keyboard');
+    picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
+};
+
+window.insertEmoji = function (emoji) {
+    const input = document.getElementById('message-input');
+    input.value += emoji;
+    input.focus();
+};
+
+
 // Handle signup
 function handleSignup(event) {
     event.preventDefault();
@@ -277,17 +292,6 @@ function handleFirebaseError(error) {
     console.error('Firebase error:', error);
     alert('An error occurred. Please try again later.');
 }
-
-window.toggleEmojiKeyboard = function () {
-    const picker = document.getElementById('emoji-keyboard');
-    picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
-};
-
-window.insertEmoji = function (emoji) {
-    const input = document.getElementById('message-input');
-    input.value += emoji;
-    document.getElementById('emoji-keyboard').style.display = 'none';
-};
 
 
 // Escape HTML
