@@ -54,25 +54,34 @@ function getCookie(name) {
     return null;
 }
 
-document.getElementById('image-input').addEventListener('change', function () {
-    const file = this.files[0];
-    if (!file) return;
+document.getElementById('message-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const fileInput = document.getElementById('image-input');
+        const file = fileInput.files[0];
 
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        const img = document.createElement('img');
-        img.src = e.target.result;
-        img.className = 'chat-image';
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.className = 'chat-image';
 
-        const chatLog = document.getElementById('chat-log');
-        const imgContainer = document.createElement('div');
-        imgContainer.className = 'chat-message user';
-        imgContainer.appendChild(img);
+                const chatLog = document.getElementById('chat-log');
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'chat-message user';
+                imgContainer.appendChild(img);
 
-        chatLog.appendChild(imgContainer);
-    };
-    reader.readAsDataURL(file);
+                chatLog.appendChild(imgContainer);
+                fileInput.value = ''; // clear after sending
+            };
+            reader.readAsDataURL(file);
+        } else {
+            window.sendMessage(); // fallback to sending text
+        }
+    }
 });
+
 
 
 // Notification function
