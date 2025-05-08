@@ -21,7 +21,13 @@
         </div>
 
         <div class="chat-input">
-            <input type="text" id="message-input" placeholder="Type a message..." onkeydown="window.handleKeyDown(event)">
+            <textarea id="message-input" placeholder="Type a message..." onkeydown="window.handleKeyDown(event)"></textarea>
+            <div class="emoji-picker">
+                <button onclick="window.insertEmoji('😊')">😊</button>
+                <button onclick="window.insertEmoji('😎')">😎</button>
+                <button onclick="window.insertEmoji('❤️')">❤️</button>
+                <!-- Add more emojis as needed -->
+            </div>
             <button onclick="window.sendMessage()">Send</button>
         </div>
     </div>
