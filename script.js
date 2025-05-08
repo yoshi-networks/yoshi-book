@@ -21,10 +21,7 @@ const database = getDatabase(app);
 let messagesLoaded = false;
 
 // Bad words list
-const BAD_WORDS = [
-    'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
-];
+const BAD_WORDS = [];
 
 // Filter bad words
 function filterBadWords(text) {
