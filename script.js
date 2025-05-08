@@ -20,22 +20,35 @@ const database = getDatabase(app);
 
 let messagesLoaded = false;
 
-// Add this bad words list near the top of the file
+// ——— Advanced bad‑word filtering ———
+// Base list of forbidden words (all lowercase, no spaces/punctuation)
 const BAD_WORDS = [
-    'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'nigga', 
-    'kai', 'k a i', 'k ai', 'ka i', '.kai', 'kai.', 'k.ai', 'ka.i', 'k.a.i', '_kai', 
-    'k  a  i', 'k  ai', 'ka  i', 'kai_'
+  'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
+  'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai'
 ];
 
-// Add this function for bad word filtering
+// Utility: escape regex‑special chars
+function escapeRegex(str) {
+  return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+// Pre‑build for each bad word a regex that allows any non‑alphanumeric between letters
+const BAD_WORD_REGEXPS = BAD_WORDS.map(word => {
+  const chars = Array.from(word).map(ch => escapeRegex(ch));
+  const pattern = chars.join('[^A-Za-z0-9]*');
+  return new RegExp(pattern, 'gi');
+});
+
+/**
+ * Replace each detected bad‑word match with a string of asterisks,
+ * preserving the length of the matched substring.
+ */
 function filterBadWords(text) {
-    let filteredText = text.toLowerCase();
-    BAD_WORDS.forEach(word => {
-        const regex = new RegExp(word, 'gi');
-        filteredText = filteredText.replace(regex, '*'.repeat(word.length));
+  return BAD_WORD_REGEXPS.reduce((txt, re) => {
+    return txt.replace(re, match => {
+      return match.replace(/[A-Za-z0-9]/g, '*');
     });
-    return filteredText;
+  }, text);
 }
 
 // Add this cookie utility functions at the top after Firebase initialization
@@ -276,7 +289,7 @@ function escapeHtml(unsafe) {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
+        .replace(/\"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
 
@@ -292,7 +305,7 @@ function updateMessagePositions() {
     });
 }
 
-// Make sure to export all functions to window
+// Export all functions to window
 const exportedFunctions = {
     showLoginModal,
     showSignupModal,
