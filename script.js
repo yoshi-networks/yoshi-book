@@ -20,15 +20,15 @@ const database = getDatabase(app);
 
 let messagesLoaded = false;
 
-// Add this bad words list near the top of the file
+// Bad words list
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
     'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
 ];
 
-// Add this function for bad word filtering
+// Filter bad words
 function filterBadWords(text) {
-    let filteredText = text.toLowerCase();
+    let filteredText = text;
     BAD_WORDS.forEach(word => {
         const regex = new RegExp(word, 'gi');
         filteredText = filteredText.replace(regex, '*'.repeat(word.length));
@@ -36,7 +36,7 @@ function filterBadWords(text) {
     return filteredText;
 }
 
-// Add this cookie utility functions at the top after Firebase initialization
+// Cookie utilities
 function setCookie(name, value, days) {
     const expires = new Date();
     expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -54,7 +54,7 @@ function getCookie(name) {
     return null;
 }
 
-// Add notification function
+// Notification function
 function showNotification(message) {
     const notification = document.createElement('div');
     notification.className = 'notification';
@@ -71,7 +71,7 @@ function showNotification(message) {
     }, 2000);
 }
 
-// Message functions
+// Send message
 function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
@@ -97,6 +97,7 @@ function sendMessage() {
         .catch(handleFirebaseError);
 }
 
+// Delete message
 function deleteMessage(messageKey, messageElement) {
     const user = localStorage.getItem('yoshibook_user');
     const messageUser = messageElement.querySelector('.username').textContent.split(':')[0].trim();
@@ -130,6 +131,7 @@ function deleteMessage(messageKey, messageElement) {
     }
 }
 
+// Load messages
 function loadMessages() {
     if (messagesLoaded) return;
     messagesLoaded = true;
@@ -144,6 +146,7 @@ function loadMessages() {
     });
 }
 
+// Display message
 function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
@@ -162,7 +165,7 @@ function displayMessage(messageData, messageKey) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
         deleteBtn.innerText = '×';
-        deleteBtn.onclick = () => window.deleteMessage(messageKey, messageElement);
+        deleteBtn.onclick = () => deleteMessage(messageKey, messageElement);
         messageElement.appendChild(deleteBtn);
     }
     
@@ -171,15 +174,17 @@ function displayMessage(messageData, messageKey) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// Auth functions
+// Show login modal
 function showLoginModal() {
     document.getElementById('loginModal').style.display = 'flex';
 }
 
+// Show signup modal
 function showSignupModal() {
     document.getElementById('signupModal').style.display = 'flex';
 }
 
+// Handle login
 function handleLogin(event) {
     event.preventDefault();
     const username = document.getElementById('loginUsername').value.trim();
@@ -199,6 +204,7 @@ function handleLogin(event) {
     }).catch(handleFirebaseError);
 }
 
+// Handle signup
 function handleSignup(event) {
     event.preventDefault();
     const username = document.getElementById('signupUsername').value.trim();
@@ -232,6 +238,7 @@ function handleSignup(event) {
     }).catch(handleFirebaseError);
 }
 
+// Logout
 function logout() {
     localStorage.removeItem('yoshibook_user');
     document.cookie = 'yoshibook_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
@@ -239,6 +246,7 @@ function logout() {
     updateMessagePositions();
 }
 
+// Update authentication display
 function updateAuthDisplay() {
     const user = localStorage.getItem('yoshibook_user');
     const authButtons = document.querySelector('.auth-buttons');
@@ -246,29 +254,34 @@ function updateAuthDisplay() {
     if (user) {
         authButtons.innerHTML = `
             <span class="user-display">Welcome, ${user}</span>
-            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
+            <button class="auth-btn login-btn" id="logoutBtn">Logout</button>
         `;
+        document.getElementById('logoutBtn').addEventListener('click', logout);
     } else {
         authButtons.innerHTML = `
-            <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
-            <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
+            <button class="auth-btn login-btn" id="loginBtn">Login</button>
+            <button class="auth-btn signup-btn" id="signupBtn">Sign Up</button>
         `;
+        document.getElementById('loginBtn').addEventListener('click', showLoginModal);
+        document.getElementById('signupBtn').addEventListener('click', showSignupModal);
     }
     loadMessages();
 }
 
-// Utility functions
+// Handle key down
 function handleKeyDown(event) {
     if (event.key === 'Enter') {
         sendMessage();
     }
 }
 
+// Handle Firebase error
 function handleFirebaseError(error) {
     console.error('Firebase error:', error);
     alert('An error occurred. Please try again later.');
 }
 
+// Escape HTML
 function escapeHtml(unsafe) {
     return unsafe
         .replace(/&/g, "&amp;")
@@ -278,45 +291,32 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
-// Add function to update message positions
+// Update message layout after login/logout
 function updateMessagePositions() {
+    const chatMessages = document.getElementById('chat-messages');
+    const messages = chatMessages.getElementsByClassName('message');
     const currentUser = localStorage.getItem('yoshibook_user');
-    const messages = document.querySelectorAll('.message');
     
-    messages.forEach(message => {
-        const username = message.querySelector('.username').textContent.split(':')[0].trim();
-        message.classList.remove('user', 'other');
-        message.classList.add(username === currentUser ? 'user' : 'other');
-    });
+    for (const messageElement of messages) {
+        const username = messageElement.querySelector('.username')?.textContent.split(':')[0].trim();
+        if (!username) continue;
+        messageElement.classList.remove('user', 'other');
+        messageElement.classList.add(username === currentUser ? 'user' : 'other');
+    }
 }
 
-// Make sure to export all functions to window
-const exportedFunctions = {
-    showLoginModal,
-    showSignupModal,
-    handleLogin,
-    handleSignup,
-    logout,
-    sendMessage,
-    deleteMessage,
-    handleKeyDown
-};
-
-Object.assign(window, exportedFunctions);
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    const cookieUser = getCookie('yoshibook_user');
-    if (cookieUser) {
-        localStorage.setItem('yoshibook_user', cookieUser);
+// Auto-fill user from cookie on load
+window.addEventListener('DOMContentLoaded', () => {
+    const storedUser = getCookie('yoshibook_user');
+    if (storedUser) {
+        localStorage.setItem('yoshibook_user', storedUser);
     }
-    updateAuthDisplay();
-    loadMessages();
+
+    // Set up initial event listeners
+    document.getElementById('send-button')?.addEventListener('click', sendMessage);
+    document.getElementById('message-input')?.addEventListener('keydown', handleKeyDown);
+    document.getElementById('login-form')?.addEventListener('submit', handleLogin);
+    document.getElementById('signup-form')?.addEventListener('submit', handleSignup);
     
-    // Close modals when clicking outside
-    window.onclick = function(event) {
-        if (event.target.className === 'modal') {
-            event.target.style.display = 'none';
-        }
-    };
+    updateAuthDisplay();
 });
