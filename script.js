@@ -54,6 +54,27 @@ function getCookie(name) {
     return null;
 }
 
+document.getElementById('image-input').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.className = 'chat-image';
+
+        const chatLog = document.getElementById('chat-log');
+        const imgContainer = document.createElement('div');
+        imgContainer.className = 'chat-message user';
+        imgContainer.appendChild(img);
+
+        chatLog.appendChild(imgContainer);
+    };
+    reader.readAsDataURL(file);
+});
+
+
 // Notification function
 function showNotification(message) {
     const notification = document.createElement('div');
