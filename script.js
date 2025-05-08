@@ -14,9 +14,6 @@ const firebaseConfig = {
     databaseURL: "https://yoshibook-ba4ca-default-rtdb.firebaseio.com/"
 };
 
-
-
-
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
@@ -82,19 +79,17 @@ document.getElementById('message-input').addEventListener('keydown', function (e
     }
 });
 
-
-
 // Notification function
 function showNotification(message) {
     const notification = document.createElement('div');
     notification.className = 'notification';
     notification.textContent = message;
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
         notification.classList.add('show');
     }, 100);
-    
+
     setTimeout(() => {
         notification.classList.remove('show');
         setTimeout(() => notification.remove(), 300);
@@ -102,7 +97,6 @@ function showNotification(message) {
 }
 
 // Send message
-
 window.sendMessage = function () {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
@@ -119,10 +113,7 @@ window.sendMessage = function () {
         isUser: user !== 'Anonymous',
         createdAt: Date.now()
     };
-};
 
-
-    
     const messagesRef = ref(database, 'messages');
     push(messagesRef, messageData)
         .then(() => {
@@ -135,14 +126,14 @@ window.sendMessage = function () {
 function deleteMessage(messageKey, messageElement) {
     const user = localStorage.getItem('yoshibook_user');
     const messageUser = messageElement.querySelector('.username').textContent.split(':')[0].trim();
-    
+
     if (user && messageUser === user) {
         showNotification('Delete this message?');
         const notification = document.querySelector('.notification');
-        
+
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'notification-buttons';
-        
+
         const confirmBtn = document.createElement('button');
         confirmBtn.textContent = 'Delete';
         confirmBtn.onclick = () => {
@@ -154,11 +145,11 @@ function deleteMessage(messageKey, messageElement) {
                 })
                 .catch(handleFirebaseError);
         };
-        
+
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = 'Cancel';
         cancelBtn.onclick = () => notification.remove();
-        
+
         buttonContainer.appendChild(confirmBtn);
         buttonContainer.appendChild(cancelBtn);
         notification.appendChild(buttonContainer);
@@ -173,7 +164,7 @@ function loadMessages() {
     const messagesRef = ref(database, 'messages');
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.innerHTML = '';
-    
+
     onChildAdded(messagesRef, (snapshot) => {
         const messageData = snapshot.val();
         displayMessage(messageData, snapshot.key);
@@ -184,17 +175,17 @@ function loadMessages() {
 function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
-    
+
     const messageElement = document.createElement('div');
     messageElement.classList.add('message');
     messageElement.classList.add(isCurrentUser ? 'user' : 'other');
-    
+
     messageElement.innerHTML = `
         <span class="username">${escapeHtml(messageData.displayName)}:</span>
         <div class="message-text">${escapeHtml(messageData.messageText)}</div>
         <span class="timestamp">${messageData.timestamp}</span>
     `;
-    
+
     if (isCurrentUser && currentUser !== 'Anonymous') {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
@@ -202,7 +193,7 @@ function displayMessage(messageData, messageKey) {
         deleteBtn.onclick = () => deleteMessage(messageKey, messageElement);
         messageElement.appendChild(deleteBtn);
     }
-    
+
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -249,7 +240,6 @@ window.insertEmoji = function (emoji) {
     input.focus();
 };
 
-
 // Handle signup
 function handleSignup(event) {
     event.preventDefault();
@@ -264,11 +254,11 @@ function handleSignup(event) {
 
     const normalizedUsername = username.toLowerCase(); // Convert to lowercase for comparison
     const userRef = ref(database, 'usedDisplayNames');
-    
+
     get(userRef).then((snapshot) => {
         const existingUsernames = snapshot.val() || {};
         const existingNormalizedUsernames = Object.keys(existingUsernames).map(name => name.toLowerCase());
-        
+
         if (existingNormalizedUsernames.includes(normalizedUsername)) {
             alert('Username already taken');
             return;
@@ -296,7 +286,7 @@ function logout() {
 function updateAuthDisplay() {
     const user = localStorage.getItem('yoshibook_user');
     const authButtons = document.querySelector('.auth-buttons');
-    
+
     if (user) {
         authButtons.innerHTML = `
             <span class="user-display">Welcome, ${user}</span>
@@ -314,56 +304,17 @@ function updateAuthDisplay() {
     loadMessages();
 }
 
-// Handle key down
-function handleKeyDown(event) {
-    if (event.key === 'Enter') {
-        sendMessage();
-    }
-}
-
-// Handle Firebase error
-function handleFirebaseError(error) {
-    console.error('Firebase error:', error);
-    alert('An error occurred. Please try again later.');
-}
-
-
-// Escape HTML
-function escapeHtml(unsafe) {
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-// Update message layout after login/logout
+// Update message position (handle scrolling)
 function updateMessagePositions() {
     const chatMessages = document.getElementById('chat-messages');
-    const messages = chatMessages.getElementsByClassName('message');
-    const currentUser = localStorage.getItem('yoshibook_user');
-    
-    for (const messageElement of messages) {
-        const username = messageElement.querySelector('.username')?.textContent.split(':')[0].trim();
-        if (!username) continue;
-        messageElement.classList.remove('user', 'other');
-        messageElement.classList.add(username === currentUser ? 'user' : 'other');
-    }
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// Auto-fill user from cookie on load
-window.addEventListener('DOMContentLoaded', () => {
-    const storedUser = getCookie('yoshibook_user');
-    if (storedUser) {
-        localStorage.setItem('yoshibook_user', storedUser);
-    }
+// Handle error
+function handleFirebaseError(error) {
+    console.error('Firebase error:', error);
+}
 
-    // Set up initial event listeners
-    document.getElementById('send-button')?.addEventListener('click', sendMessage);
-    document.getElementById('message-input')?.addEventListener('keydown', handleKeyDown);
-    document.getElementById('login-form')?.addEventListener('submit', handleLogin);
-    document.getElementById('signup-form')?.addEventListener('submit', handleSignup);
-    
-    updateAuthDisplay();
-});
+// Initialize
+updateAuthDisplay();
+loadMessages();
