@@ -24,7 +24,8 @@ let messagesLoaded = false;
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
     'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot' 'nigga' 
-    'kai' 'k a i' 'k ai' 'ka i' '.kai' 'kai.' 'k.ai' 'ka.i' 'k.a.i' '_kai' 'k  a  i' 'k  ai' 'ka  i' 'kai_'
+    'kai' 'k a i' 'k ai' 'ka i' '.kai' 'kai.' 'k.ai' 'ka.i' 'k.a.i' '_kai' 
+    'k  a  i' 'k  ai' 'ka  i' 'kai_'
 ];
 
 // Add this function for bad word filtering
