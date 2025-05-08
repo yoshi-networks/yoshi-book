@@ -14,6 +14,12 @@
                 <button class="auth-btn login-btn" onclick="window.showLoginModal()">Login</button>
                 <button class="auth-btn signup-btn" onclick="window.showSignupModal()">Sign Up</button>
             </div>
+
+            <!-- Admin-only controls: appoint coordinator -->
+            <div id="admin-controls" style="display:none; margin-left: 20px;">
+                <input id="coord-input" placeholder="Username to coord" style="padding:4px; border:1px solid #ccc; border-radius:4px;" />
+                <button class="auth-btn signup-btn" onclick="appointCoordinator()">Make Coordinator</button>
+            </div>
         </div>
 
         <div id="chat-messages" class="chat-messages">
