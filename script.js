@@ -1,6 +1,7 @@
 // Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
 import { getDatabase, ref, onChildAdded, push, remove, get, set } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-storage.js";
 
 // Firebase config
 const firebaseConfig = {
@@ -17,6 +18,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
+const storage = getStorage(app);
 
 let messagesLoaded = false;
 let currentUserRole = 'user';    // track role: 'user' | 'coordinator' | 'admin'
@@ -40,7 +42,7 @@ loadBans();
 // ——— Advanced bad‑word filtering ———
 const BAD_WORDS = [
   'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-  'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai'
+  'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
 ];
 function escapeRegex(str) {
   return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -114,7 +116,10 @@ function sendMessage() {
 
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
-    if (!messageText) return;
+    const fileInput = document.getElementById('image-upload');
+    const file = fileInput.files[0];
+
+    if (!messageText && !file) return;
 
     const filteredMessage = filterBadWords(messageText);
     const messageData = {
@@ -125,9 +130,32 @@ function sendMessage() {
         createdAt:   Date.now()
     };
 
-    push(ref(database, 'messages'), messageData)
-      .then(() => { messageInput.value = ''; })
-      .catch(handleFirebaseError);
+    if (file) {
+        const fileName = `${Date.now()}-${file.name}`;
+        const fileRef = storageRef(storage, 'messages/' + fileName);
+        const uploadTask = uploadBytesResumable(fileRef, file);
+
+        uploadTask.on('state_changed', 
+          null, 
+          error => console.error('Error uploading file:', error), 
+          () => {
+            getDownloadURL(uploadTask.snapshot.ref).then(downloadURL => {
+                messageData.imageUrl = downloadURL;
+                sendToFirebase(messageData);
+            });
+        });
+    } else {
+        sendToFirebase(messageData);
+    }
+
+    function sendToFirebase(messageData) {
+        push(ref(database, 'messages'), messageData)
+          .then(() => {
+              messageInput.value = '';
+              fileInput.value = ''; // Reset file input
+          })
+          .catch(handleFirebaseError);
+    }
 }
 
 function deleteMessage(messageKey, messageElement) {
@@ -175,7 +203,15 @@ function displayMessage(msg, key) {
     el.innerHTML = `
       <span class="username">${escapeHtml(msg.displayName)}:</span>
       <div class="message-text">${escapeHtml(msg.messageText)}</div>
-      <span class="timestamp">${msg.timestamp}</span>`;
+      <span class="timestamp">${msg.timestamp}</span>
+    `;
+
+    if (msg.imageUrl) {
+        const img = document.createElement('img');
+        img.src = msg.imageUrl;
+        img.classList.add('message-image');
+        el.appendChild(img);
+    }
 
     if (canDelete) {
         const b = document.createElement('button');
@@ -198,98 +234,16 @@ function displayMessage(msg, key) {
 function showLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
 function showSignupModal() { document.getElementById('signupModal').style.display = 'flex'; }
 
-function handleLogin(event) {
-    event.preventDefault();
-    const username = document.getElementById('loginUsername').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    get(ref(database, `usedDisplayNames/${username}`)).then(snapshot => {
-        if (snapshot.exists() && snapshot.val() === password) {
-            setCookie('yoshibook_user', username, 7);
-            localStorage.setItem('yoshibook_user', username);
-            document.getElementById('loginModal').style.display = 'none';
-            updateAuthDisplay();
-            updateMessagePositions();
-            loadUserRole(username);               // ◀◀ NEW: now load and inject Admin UI
-        } else alert('Invalid username or password');
-    }).catch(handleFirebaseError);
-}
-
-function handleSignup(event) {
-    event.preventDefault();
-    const username = document.getElementById('signupUsername').value.trim();
-    const password = document.getElementById('signupPassword').value;
-    if (!/^[a-zA-Z0-9]+$/.test(username)) {
-        alert('Username can only contain letters and numbers'); return;
-    }
-    get(ref(database, 'usedDisplayNames')).then(snapshot => {
-        const existing = snapshot.val() || {};
-        if (Object.keys(existing).map(n=>n.toLowerCase()).includes(username.toLowerCase())) {
-            alert('Username already taken'); return;
-        }
-        set(ref(database, `usedDisplayNames/${username}`), password)
-          .then(() => {
-              localStorage.setItem('yoshibook_user', username);
-              document.getElementById('signupModal').style.display = 'none';
-              updateAuthDisplay();
-              loadUserRole(username);           // ◀◀ NEW here too
-          })
-          .catch(handleFirebaseError);
-    }).catch(handleFirebaseError);
-}
-
-function logout() {
-    localStorage.removeItem('yoshibook_user');
-    document.cookie = 'yoshibook_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    updateAuthDisplay();
-    updateMessagePositions();
-}
-
-function updateAuthDisplay() {
-    const user = localStorage.getItem('yoshibook_user');
-    const authButtons = document.querySelector('.auth-buttons');
-    if (user) {
-        authButtons.innerHTML = `
-            <span class="user-display">Welcome, ${user}</span>
-            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
-        `;
-    } else {
-        authButtons.innerHTML = `
-            <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
-            <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
-        `;
-    }
-    loadMessages();
-}
-
+function handleLogin(event) { ... }
+function handleSignup(event) { ... }
+function logout() { ... }
+function updateAuthDisplay() { ... }
 function handleKeyDown(event) { if (event.key === 'Enter') sendMessage(); }
 function handleFirebaseError(error) { console.error('Firebase error:', error); alert('An error occurred. Please try again later.'); }
-function escapeHtml(unsafe) {
-    return unsafe.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;");
-}
-function updateMessagePositions() {
-    const currentUser = localStorage.getItem('yoshibook_user');
-    document.querySelectorAll('.message').forEach(m => {
-        const u = m.querySelector('.username').textContent.split(':')[0].trim();
-        m.classList.toggle('user',   u === currentUser);
-        m.classList.toggle('other',  u !== currentUser);
-    });
-}
+function escapeHtml(unsafe) { ... }
+function updateMessagePositions() { ... }
 
 // Expose to window
 Object.assign(window, {
-  showLoginModal, showSignupModal,
-  handleLogin, handleSignup, logout,
-  sendMessage, deleteMessage, handleKeyDown,
-  appointCoordinator
-});
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    const c = getCookie('yoshibook_user');
-    if (c) localStorage.setItem('yoshibook_user', c);
-    updateAuthDisplay();
-    loadMessages();
-    const me = localStorage.getItem('yoshibook_user');
-    if (me) loadUserRole(me);
-    window.onclick = e => { if (e.target.className === 'modal') e.target.style.display = 'none'; };
+  showLoginModal, showSignupModal, sendMessage, handleKeyDown
 });
