@@ -278,6 +278,18 @@ function handleFirebaseError(error) {
     alert('An error occurred. Please try again later.');
 }
 
+window.toggleEmojiKeyboard = function () {
+    const picker = document.getElementById('emoji-keyboard');
+    picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
+};
+
+window.insertEmoji = function (emoji) {
+    const input = document.getElementById('message-input');
+    input.value += emoji;
+    document.getElementById('emoji-keyboard').style.display = 'none';
+};
+
+
 // Escape HTML
 function escapeHtml(unsafe) {
     return unsafe
