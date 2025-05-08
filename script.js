@@ -102,7 +102,8 @@ function showNotification(message) {
 }
 
 // Send message
-function sendMessage() {
+
+window.sendMessage = function () {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
 
@@ -110,7 +111,7 @@ function sendMessage() {
 
     const filteredMessage = filterBadWords(messageText);
     const user = localStorage.getItem('yoshibook_user') || 'Anonymous';
-    
+
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
@@ -118,6 +119,9 @@ function sendMessage() {
         isUser: user !== 'Anonymous',
         createdAt: Date.now()
     };
+};
+
+
     
     const messagesRef = ref(database, 'messages');
     push(messagesRef, messageData)
