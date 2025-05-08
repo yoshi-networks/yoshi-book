@@ -22,7 +22,18 @@
 
         <div class="chat-input">
             <input type="text" id="message-input" placeholder="Type a message..." onkeydown="window.handleKeyDown(event)">
+            <button onclick="window.toggleEmojiKeyboard()">🙂</button>
             <button onclick="window.sendMessage()">Send</button>
+        </div>
+        <!-- Emoji Keyboard -->
+        <div id="emoji-keyboard" class="emoji-keyboard" style="display:none;">
+            <button class="emoji-btn" onclick="insertEmoji('😊')">😊</button>
+            <button class="emoji-btn" onclick="insertEmoji('😂')">😂</button>
+            <button class="emoji-btn" onclick="insertEmoji('😢')">😢</button>
+            <button class="emoji-btn" onclick="insertEmoji('😎')">😎</button>
+            <button class="emoji-btn" onclick="insertEmoji('❤️')">❤️</button>
+            <button class="emoji-btn" onclick="insertEmoji('🔥')">🔥</button>
+            <!-- Add more emojis as needed -->
         </div>
     </div>
 
