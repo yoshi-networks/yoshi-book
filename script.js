@@ -1,7 +1,6 @@
 // Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
 import { getDatabase, ref, onChildAdded, push, remove, get, set } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-storage.js";
 
 // Firebase config
 const firebaseConfig = {
@@ -18,232 +17,323 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
-const storage = getStorage(app);
 
 let messagesLoaded = false;
-let currentUserRole = 'user';    // track role: 'user' | 'coordinator' | 'admin'
-let bannedUsers = [];            // in-memory ban list
 
-// ◀◀ NEW: ensure each visitor (even anonymous) has a unique anonId
-let anonId = getCookie('anonId');
-if (!anonId) {
-  anonId = crypto.randomUUID();
-  setCookie('anonId', anonId, 30);
-}
-
-// ——— Load bannedUsers from cookie ———
-function loadBans() {
-    const cookie = getCookie('bannedUsers');
-    try { bannedUsers = cookie ? JSON.parse(cookie) : []; }
-    catch { bannedUsers = []; }
-}
-loadBans();
-
-// ——— Advanced bad‑word filtering ———
+// Base list of forbidden words (all lowercase, no spaces/punctuation)
 const BAD_WORDS = [
   'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-  'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
+  'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai'
 ];
+
+// Utility: escape regex‑special chars
 function escapeRegex(str) {
   return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
+
+// Pre‑build for each bad word a regex that allows any non‑alphanumeric between letters
 const BAD_WORD_REGEXPS = BAD_WORDS.map(word => {
+  // e.g. ['k','a','i'] → ['k','[^A-Za-z0-9]*','a','[^A-Za-z0-9]*','i']
   const chars = Array.from(word).map(ch => escapeRegex(ch));
   const pattern = chars.join('[^A-Za-z0-9]*');
+  // global, case‑insensitive
   return new RegExp(pattern, 'gi');
 });
+
+/**
+ * Replace each detected bad‑word match with a string of asterisks,
+ * preserving the length of the matched substring.
+ */
 function filterBadWords(text) {
   return BAD_WORD_REGEXPS.reduce((txt, re) => {
-    return txt.replace(re, match => match.replace(/[A-Za-z0-9]/g, '*'));
+    return txt.replace(re, match => {
+      // replace only letters/digits in the match with *, keep separators if you like:
+      return match.replace(/[A-Za-z0-9]/g, '*');
+    });
   }, text);
 }
 
-// Cookie utilities
+// Add this cookie utility functions at the top after Firebase initialization
 function setCookie(name, value, days) {
     const expires = new Date();
-    expires.setTime(expires.getTime() + days * 864e5);
-    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/`;
-}
-function getCookie(name) {
-    const v = document.cookie.split('; ').find(row => row.startsWith(name + '='));
-    return v ? decodeURIComponent(v.split('=')[1]) : null;
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = ${name}=${value};expires=${expires.toUTCString()};path=/;
 }
 
-// Notification
+function getCookie(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for(let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
+
+// Add notification function
 function showNotification(message) {
     const notification = document.createElement('div');
     notification.className = 'notification';
     notification.textContent = message;
     document.body.appendChild(notification);
-    setTimeout(() => notification.classList.add('show'), 100);
+    
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
     setTimeout(() => {
         notification.classList.remove('show');
         setTimeout(() => notification.remove(), 300);
     }, 2000);
 }
 
-// ——— Role detection & Admin‑UI injection ———
-function loadUserRole(username) {
-    get(ref(database, `roles/${username}`)).then(snap => {
-        if (snap.exists()) currentUserRole = snap.val();
-        if (currentUserRole === 'admin') {
-            // inject Admin controls if not already present
-            if (!document.getElementById('admin-controls')) {
-                const ctrl = document.createElement('div');
-                ctrl.id = 'admin-controls';
-                ctrl.style.display = 'flex';
-                ctrl.style.alignItems = 'center';
-                ctrl.style.marginLeft = '20px';
-                ctrl.innerHTML = `
-                  <input id="coord-input" placeholder="Username to coord" 
-                         style="padding:4px;border:1px solid #ccc;border-radius:4px;margin-right:4px;">
-                  <button class="auth-btn signup-btn" onclick="appointCoordinator()">Make Coordinator</button>
-                `;
-                document.querySelector('.chat-header').appendChild(ctrl);
-            }
-        }
-    });
-}
-
 // Message functions
 function sendMessage() {
-    const user = localStorage.getItem('yoshibook_user') || null;
-    const id    = user || anonId;  
-    if (bannedUsers.includes(id)) {
-        alert('You have been banned!');
-        return;
-    }
-
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
-    const fileInput = document.getElementById('image-upload');
-    const file = fileInput.files[0];
 
-    if (!messageText && !file) return;
+    if (messageText === '') return;
 
     const filteredMessage = filterBadWords(messageText);
+    const user = localStorage.getItem('yoshibook_user') || 'Anonymous';
+    
     const messageData = {
-        senderId:    id,
-        displayName: user || 'Anonymous',
+        displayName: user,
         messageText: filteredMessage,
-        timestamp:   new Date().toLocaleTimeString(),
-        createdAt:   Date.now()
+        timestamp: new Date().toLocaleTimeString(),
+        isUser: user !== 'Anonymous',
+        createdAt: Date.now()
     };
-
-    if (file) {
-        const fileName = `${Date.now()}-${file.name}`;
-        const fileRef = storageRef(storage, 'messages/' + fileName);
-        const uploadTask = uploadBytesResumable(fileRef, file);
-
-        uploadTask.on('state_changed', 
-          null, 
-          error => console.error('Error uploading file:', error), 
-          () => {
-            getDownloadURL(uploadTask.snapshot.ref).then(downloadURL => {
-                messageData.imageUrl = downloadURL;
-                sendToFirebase(messageData);
-            });
-        });
-    } else {
-        sendToFirebase(messageData);
-    }
-
-    function sendToFirebase(messageData) {
-        push(ref(database, 'messages'), messageData)
-          .then(() => {
-              messageInput.value = '';
-              fileInput.value = ''; // Reset file input
-          })
-          .catch(handleFirebaseError);
-    }
+    
+    const messagesRef = ref(database, 'messages');
+    push(messagesRef, messageData)
+        .then(() => {
+            messageInput.value = '';
+        })
+        .catch(handleFirebaseError);
 }
 
 function deleteMessage(messageKey, messageElement) {
-    remove(ref(database, `messages/${messageKey}`))
-      .then(() => messageElement.remove())
-      .catch(handleFirebaseError);
-}
-
-function banUser(id) {
-    if (!bannedUsers.includes(id)) {
-        bannedUsers.push(id);
-        setCookie('bannedUsers', JSON.stringify(bannedUsers), 7);
-        alert('That user has been banned.');
+    const user = localStorage.getItem('yoshibook_user');
+    const messageUser = messageElement.querySelector('.username').textContent.split(':')[0].trim();
+    
+    if (user && messageUser === user) {
+        showNotification('Delete this message?');
+        const notification = document.querySelector('.notification');
+        
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'notification-buttons';
+        
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Delete';
+        confirmBtn.onclick = () => {
+            const messageRef = ref(database, messages/${messageKey});
+            remove(messageRef)
+                .then(() => {
+                    messageElement.remove();
+                    notification.remove();
+                })
+                .catch(handleFirebaseError);
+        };
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = () => notification.remove();
+        
+        buttonContainer.appendChild(confirmBtn);
+        buttonContainer.appendChild(cancelBtn);
+        notification.appendChild(buttonContainer);
     }
-}
-
-function appointCoordinator() {
-    const target = document.getElementById('coord-input').value.trim();
-    if (!target) return;
-    set(ref(database, `roles/${target}`), 'coordinator')
-      .then(() => alert(`${target} is now a coordinator.`))
-      .catch(handleFirebaseError);
 }
 
 function loadMessages() {
     if (messagesLoaded) return;
     messagesLoaded = true;
-    const chat = document.getElementById('chat-messages');
-    chat.innerHTML = '';
-    onChildAdded(ref(database, 'messages'), snap => displayMessage(snap.val(), snap.key));
+
+    const messagesRef = ref(database, 'messages');
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.innerHTML = '';
+    
+    onChildAdded(messagesRef, (snapshot) => {
+        const messageData = snapshot.val();
+        displayMessage(messageData, snapshot.key);
+    });
 }
 
-function displayMessage(msg, key) {
-    const me      = localStorage.getItem('yoshibook_user') || null;
-    const idMe    = me || anonId;
-    const isAdmin = currentUserRole === 'admin';
-    const isCoord = currentUserRole === 'coordinator';
-    const canDelete = isAdmin 
-                   || (isCoord && !['admin','coordinator'].includes(msg.displayName));
-    const canBan    = (isAdmin || isCoord) && msg.senderId !== idMe;
-
-    const el = document.createElement('div');
-    const mine = msg.senderId === idMe;
-    el.classList.add('message', mine ? 'user' : 'other');
-    el.innerHTML = `
-      <span class="username">${escapeHtml(msg.displayName)}:</span>
-      <div class="message-text">${escapeHtml(msg.messageText)}</div>
-      <span class="timestamp">${msg.timestamp}</span>
-    `;
-
-    if (msg.imageUrl) {
-        const img = document.createElement('img');
-        img.src = msg.imageUrl;
-        img.classList.add('message-image');
-        el.appendChild(img);
+function displayMessage(messageData, messageKey) {
+    const currentUser = localStorage.getItem('yoshibook_user');
+    const isCurrentUser = messageData.displayName === currentUser;
+    
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message');
+    messageElement.classList.add(isCurrentUser ? 'user' : 'other');
+    
+    messageElement.innerHTML = 
+        <span class="username">${escapeHtml(messageData.displayName)}:</span>
+        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
+        <span class="timestamp">${messageData.timestamp}</span>
+    ;
+    
+    if (isCurrentUser && currentUser !== 'Anonymous') {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.classList.add('delete-btn');
+        deleteBtn.innerText = '×';
+        deleteBtn.onclick = () => window.deleteMessage(messageKey, messageElement);
+        messageElement.appendChild(deleteBtn);
     }
-
-    if (canDelete) {
-        const b = document.createElement('button');
-        b.className = 'delete-btn'; b.innerText = '×';
-        b.onclick = () => deleteMessage(key, el);
-        el.appendChild(b);
-    }
-    if (canBan) {
-        const b2 = document.createElement('button');
-        b2.innerText = 'Ban'; b2.style.marginLeft = '5px';
-        b2.onclick = () => banUser(msg.senderId);
-        el.appendChild(b2);
-    }
-
-    document.getElementById('chat-messages').appendChild(el);
-    el.parentNode.scrollTop = el.parentNode.scrollHeight;
+    
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 // Auth functions
-function showLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
-function showSignupModal() { document.getElementById('signupModal').style.display = 'flex'; }
+function showLoginModal() {
+    document.getElementById('loginModal').style.display = 'flex';
+}
 
-function handleLogin(event) { ... }
-function handleSignup(event) { ... }
-function logout() { ... }
-function updateAuthDisplay() { ... }
-function handleKeyDown(event) { if (event.key === 'Enter') sendMessage(); }
-function handleFirebaseError(error) { console.error('Firebase error:', error); alert('An error occurred. Please try again later.'); }
-function escapeHtml(unsafe) { ... }
-function updateMessagePositions() { ... }
+function showSignupModal() {
+    document.getElementById('signupModal').style.display = 'flex';
+}
 
-// Expose to window
-Object.assign(window, {
-  showLoginModal, showSignupModal, sendMessage, handleKeyDown
+function handleLogin(event) {
+    event.preventDefault();
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    const userRef = ref(database, usedDisplayNames/${username});
+    get(userRef).then((snapshot) => {
+        if (snapshot.exists() && snapshot.val() === password) {
+            setCookie('yoshibook_user', username, 7); // Store for 7 days
+            localStorage.setItem('yoshibook_user', username);
+            document.getElementById('loginModal').style.display = 'none';
+            updateAuthDisplay();
+            updateMessagePositions();
+        } else {
+            alert('Invalid username or password');
+        }
+    }).catch(handleFirebaseError);
+}
+
+function handleSignup(event) {
+    event.preventDefault();
+    const username = document.getElementById('signupUsername').value.trim();
+    const password = document.getElementById('signupPassword').value;
+
+    // Check for spaces and special characters
+    if (!/^[a-zA-Z0-9]+$/.test(username)) {
+        alert('Username can only contain letters and numbers');
+        return;
+    }
+
+    const normalizedUsername = username.toLowerCase(); // Convert to lowercase for comparison
+    const userRef = ref(database, 'usedDisplayNames');
+    
+    get(userRef).then((snapshot) => {
+        const existingUsernames = snapshot.val() || {};
+        const existingNormalizedUsernames = Object.keys(existingUsernames).map(name => name.toLowerCase());
+        
+        if (existingNormalizedUsernames.includes(normalizedUsername)) {
+            alert('Username already taken');
+            return;
+        }
+
+        set(ref(database, usedDisplayNames/${username}), password)
+            .then(() => {
+                localStorage.setItem('yoshibook_user', username);
+                document.getElementById('signupModal').style.display = 'none';
+                updateAuthDisplay();
+            })
+            .catch(handleFirebaseError);
+    }).catch(handleFirebaseError);
+}
+
+function logout() {
+    localStorage.removeItem('yoshibook_user');
+    document.cookie = 'yoshibook_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    updateAuthDisplay();
+    updateMessagePositions();
+}
+
+function updateAuthDisplay() {
+    const user = localStorage.getItem('yoshibook_user');
+    const authButtons = document.querySelector('.auth-buttons');
+    
+    if (user) {
+        authButtons.innerHTML = 
+            <span class="user-display">Welcome, ${user}</span>
+            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
+        ;
+    } else {
+        authButtons.innerHTML = 
+            <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
+            <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
+        ;
+    }
+    loadMessages();
+}
+
+// Utility functions
+function handleKeyDown(event) {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+}
+
+function handleFirebaseError(error) {
+    console.error('Firebase error:', error);
+    alert('An error occurred. Please try again later.');
+}
+
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// Add function to update message positions
+function updateMessagePositions() {
+    const currentUser = localStorage.getItem('yoshibook_user');
+    const messages = document.querySelectorAll('.message');
+    
+    messages.forEach(message => {
+        const username = message.querySelector('.username').textContent.split(':')[0].trim();
+        message.classList.remove('user', 'other');
+        message.classList.add(username === currentUser ? 'user' : 'other');
+    });
+}
+
+// Make sure to export all functions to window
+const exportedFunctions = {
+    showLoginModal,
+    showSignupModal,
+    handleLogin,
+    handleSignup,
+    logout,
+    sendMessage,
+    deleteMessage,
+    handleKeyDown
+};
+
+Object.assign(window, exportedFunctions);
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    const cookieUser = getCookie('yoshibook_user');
+    if (cookieUser) {
+        localStorage.setItem('yoshibook_user', cookieUser);
+    }
+    updateAuthDisplay();
+    loadMessages();
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        if (event.target.className === 'modal') {
+            event.target.style.display = 'none';
+        }
+    };
 });
