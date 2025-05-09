@@ -27,7 +27,7 @@ const BAD_WORDS = [
 ];
 
 // Add spam prevention variables
-const SPAM_LIMIT = 3; // Number of messages
+const SPAM_LIMIT = 1; // Number of messages
 const SPAM_WINDOW = 3000; // Time window in milliseconds (3 seconds)
 const MAX_MESSAGE_LENGTH = 100; // Character limit
 
@@ -426,7 +426,7 @@ function updateMessagePositions() {
     });
 }
 
-// Make sure to export all functions to window
+// Update the exported functions at the bottom of script.js
 const exportedFunctions = {
     showLoginModal,
     showSignupModal,
@@ -435,15 +435,18 @@ const exportedFunctions = {
     logout,
     sendMessage,
     deleteMessage,
-    handleKeyDown
+    handleKeyDown,
+    startBanSelection,
+    stopBanSelection,
+    handleMessageClick,
+    showAdminPanel,
+    appointCoordinator,
+    banUserFromPanel,
+    unbanUserFromPanel
 };
 
-Object.assign(window, {
-    ...exportedFunctions,
-    banUser,
-    unbanUser,
-    setUserRole
-});
+// Make sure all functions are exported to window
+Object.assign(window, exportedFunctions);
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -537,15 +540,6 @@ function updateBannedUsersList() {
         bannedUsersList.appendChild(userDiv);
     });
 }
-
-// Add to window exports
-Object.assign(window, {
-    ...exportedFunctions,
-    showAdminPanel,
-    appointCoordinator,
-    banUserFromPanel,
-    unbanUserFromPanel
-});
 
 // Add character counter to chat.html input
 function updateCharCount() {
