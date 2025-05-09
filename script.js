@@ -143,8 +143,10 @@ async function setUserRole(username, role) {
     }
 }
 
-function isAdmin(username) {
-    return username === ADMIN_USERNAME || getUserRole(username) === 'admin';
+async function isAdmin(username) {
+    if (username === ADMIN_USERNAME) return true;
+    const role = await getUserRole(username);
+    return role === 'admin';
 }
 
 async function isCoordinator(username) {
@@ -153,7 +155,7 @@ async function isCoordinator(username) {
 }
 
 async function canModerate(username) {
-    return isAdmin(username) || await isCoordinator(username);
+    return await isAdmin(username) || await isCoordinator(username);
 }
 
 // Ban system
@@ -321,7 +323,7 @@ async function displayMessage(messageData, messageKey) {
     messageElement.classList.add(isCurrentUser ? 'user' : 'other');
     
     let roleBadge = '';
-    if (isAdmin(messageUser)) {
+    if (await isAdmin(messageUser)) {
         roleBadge = '<span class="role-badge admin">Admin</span>';
     } else if (await isCoordinator(messageUser)) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
@@ -427,7 +429,7 @@ async function updateAuthDisplay() {
     
     if (user) {
         let roleBadge = '';
-        if (isAdmin(user)) {
+        if (await isAdmin(user)) {
             roleBadge = '<span class="role-badge admin">Admin</span>';
         } else if (await isCoordinator(user)) {
             roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
@@ -436,7 +438,7 @@ async function updateAuthDisplay() {
         const canMod = await canModerate(user);
         authButtons.innerHTML = `
             <div id="adminControls" class="admin-controls" style="display: ${canMod ? 'block' : 'none'}">
-                <button class="admin-btn" onclick="window.showAdminPanel()">${isAdmin(user) ? 'Admin Panel' : 'Coordinator Panel'}</button>
+                <button class="admin-btn" onclick="window.showAdminPanel()">${await isAdmin(user) ? 'Admin Panel' : 'Coordinator Panel'}</button>
             </div>
             <span class="user-display">Welcome, ${user}${roleBadge}</span>
             <button class="auth-btn login-btn" onclick="window.logout()">Logout</button>
@@ -513,12 +515,12 @@ function updateCoordinatorsList() {
 // Add function to remove coordinator
 function removeCoordinator(username) {
     const currentUser = localStorage.getItem('yoshibook_user');
-    if (!isAdmin(currentUser)) {
+    if (!await isAdmin(currentUser)) {
         showNotification('Only admins can remove coordinators');
         return;
     }
 
-    setUserRole(username, 'user');
+    await setUserRole(username, 'user');
     showNotification(`Removed ${username} as coordinator`);
     updateCoordinatorsList();
     updateAuthDisplay();
@@ -530,9 +532,9 @@ async function showAdminPanel() {
     const currentUser = localStorage.getItem('yoshibook_user');
     
     try {
-        const isAdmin = await isAdmin(currentUser);
+        const isAdminUser = await isAdmin(currentUser);
         
-        if (isAdmin) {
+        if (isAdminUser) {
             // Admin panel content
             modal.innerHTML = `
                 <div class="modal-content">
@@ -576,7 +578,7 @@ async function showAdminPanel() {
         
         modal.style.display = 'block';
         await updateBannedUsersList();
-        if (isAdmin) {
+        if (isAdminUser) {
             await updateCoordinatorsList();
         }
     } catch (error) {
@@ -588,7 +590,7 @@ async function showAdminPanel() {
 // Add new function to start coordinator selection
 function startCoordinatorSelection() {
     const currentUser = localStorage.getItem('yoshibook_user');
-    if (!isAdmin(currentUser)) {
+    if (!await isAdmin(currentUser)) {
         showNotification('Only admins can appoint coordinators');
         return;
     }
@@ -614,7 +616,7 @@ async function updateAllMessages() {
     for (const message of messages) {
         const username = message.querySelector('.username').textContent.split(':')[0].trim();
         let roleBadge = '';
-        if (isAdmin(username)) {
+        if (await isAdmin(username)) {
             roleBadge = '<span class="role-badge admin">Admin</span>';
         } else if (await isCoordinator(username)) {
             roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
@@ -637,7 +639,7 @@ async function handleMessageClick(messageElement) {
             return;
         }
 
-        banUser(username);
+        await banUser(username);
         showNotification(`${username} banned!`);
         stopBanSelection();
     } else if (isSelectingForCoordinator) {
@@ -750,17 +752,17 @@ function banUserFromPanel() {
     if (!username) return;
 
     const currentUser = localStorage.getItem('yoshibook_user');
-    if (!canModerate(currentUser)) {
+    if (!await canModerate(currentUser)) {
         showNotification('You do not have permission to ban users');
         return;
     }
 
-    if (canModerate(username)) {
+    if (await canModerate(username)) {
         showNotification('Cannot ban moderators');
         return;
     }
 
-    banUser(username);
+    await banUser(username);
     showNotification(`Banned ${username}`);
     document.getElementById('banUsername').value = '';
     updateBannedUsersList();
@@ -770,12 +772,12 @@ function unbanUserFromPanel(username) {
     if (!username) return;
 
     const currentUser = localStorage.getItem('yoshibook_user');
-    if (!canModerate(currentUser)) {
+    if (!await canModerate(currentUser)) {
         showNotification('You do not have permission to unban users');
         return;
     }
 
-    unbanUser(username);
+    await unbanUser(username);
     showNotification(`Unbanned ${username}`);
     updateBannedUsersList();
 }
@@ -814,7 +816,7 @@ function updateCharCount() {
 
 function startBanSelection() {
     const currentUser = localStorage.getItem('yoshibook_user');
-    if (!canModerate(currentUser)) {
+    if (!await canModerate(currentUser)) {
         showNotification('You do not have permission to ban users');
         return;
     }
