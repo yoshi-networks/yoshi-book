@@ -278,13 +278,14 @@ function displayMessage(messageData, messageKey) {
     // Add click handler for ban selection
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
     
+    // Add delete button if user has permission
     if (canModerate(currentUser) || (isCurrentUser && currentUser !== 'Anonymous')) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
         deleteBtn.innerText = '×';
         deleteBtn.onclick = (e) => {
             e.stopPropagation(); // Prevent triggering message click
-            window.deleteMessage(messageKey, messageElement);
+            deleteMessage(messageKey, messageElement);
         };
         messageElement.appendChild(deleteBtn);
     }
@@ -365,24 +366,19 @@ function logout() {
 function updateAuthDisplay() {
     const user = localStorage.getItem('yoshibook_user');
     const authButtons = document.querySelector('.auth-buttons');
-    const adminControls = document.getElementById('adminControls');
     
-    if (!authButtons) return; // Add safety check
+    if (!authButtons) return;
     
     if (user) {
         let roleBadge = '';
         if (isAdmin(user)) {
             roleBadge = '<span class="role-badge admin">Admin</span>';
-            if (adminControls) adminControls.style.display = 'block';
         } else if (isCoordinator(user)) {
             roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
-            if (adminControls) adminControls.style.display = 'block';
-        } else {
-            if (adminControls) adminControls.style.display = 'none';
         }
         
         authButtons.innerHTML = `
-            <div id="adminControls" class="admin-controls" style="display: none;">
+            <div id="adminControls" class="admin-controls" style="display: ${canModerate(user) ? 'block' : 'none'}">
                 <button class="admin-btn" onclick="showAdminPanel()">Admin Panel</button>
             </div>
             <span class="user-display">Welcome, ${user}${roleBadge}</span>
