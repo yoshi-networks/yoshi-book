@@ -616,13 +616,6 @@ function banUserFromPanel() {
 }
 
 function unbanUserFromPanel(username) {
-    if (!username) {
-        const unbanInput = document.getElementById('unbanUsername');
-        if (unbanInput) {
-            username = unbanInput.value.trim();
-            if (unbanInput) unbanInput.value = '';
-        }
-    }
     if (!username) return;
 
     const currentUser = localStorage.getItem('yoshibook_user');
