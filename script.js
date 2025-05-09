@@ -284,7 +284,8 @@ async function deleteMessage(messageId, messageAuthor) {
         // 1. User is admin or coordinator (can delete anything)
         // 2. User is the message author
         if (isUserAdmin || isUserCoord || currentUser === messageAuthor) {
-            await remove(ref(database, `messages/${messageId}`));
+            const messageRef = ref(database, `messages/${messageId}`);
+            await remove(messageRef);
             showNotification('Message deleted');
         } else {
             showNotification('You cannot delete this message');
