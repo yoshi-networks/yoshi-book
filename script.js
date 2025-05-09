@@ -617,7 +617,11 @@ function banUserFromPanel() {
 
 function unbanUserFromPanel(username) {
     if (!username) {
-        username = document.getElementById('unbanUsername').value.trim();
+        const unbanInput = document.getElementById('unbanUsername');
+        if (unbanInput) {
+            username = unbanInput.value.trim();
+            if (unbanInput) unbanInput.value = '';
+        }
     }
     if (!username) return;
 
@@ -629,7 +633,6 @@ function unbanUserFromPanel(username) {
 
     unbanUser(username);
     showNotification(`Unbanned ${username}`);
-    document.getElementById('unbanUsername').value = '';
     updateBannedUsersList();
 }
 
