@@ -436,17 +436,22 @@ const exportedFunctions = {
     sendMessage,
     deleteMessage,
     handleKeyDown,
-    startBanSelection,
-    stopBanSelection,
-    handleMessageClick,
     showAdminPanel,
     appointCoordinator,
     banUserFromPanel,
-    unbanUserFromPanel
+    unbanUserFromPanel,
+    startBanSelection,
+    stopBanSelection,
+    handleMessageClick
 };
 
-// Make sure all functions are exported to window
+// Make sure to export all functions to window
 Object.assign(window, exportedFunctions);
+
+// Also explicitly export these functions
+window.startBanSelection = startBanSelection;
+window.stopBanSelection = stopBanSelection;
+window.handleMessageClick = handleMessageClick;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -608,6 +613,3 @@ function stopBanSelection() {
         message.classList.remove('selectable', 'selecting');
     });
 }
-
-// Make sure to export the function to window
-window.startBanSelection = startBanSelection;
