@@ -367,19 +367,24 @@ function updateAuthDisplay() {
     const authButtons = document.querySelector('.auth-buttons');
     const adminControls = document.getElementById('adminControls');
     
+    if (!authButtons) return; // Add safety check
+    
     if (user) {
         let roleBadge = '';
         if (isAdmin(user)) {
             roleBadge = '<span class="role-badge admin">Admin</span>';
-            adminControls.style.display = 'block';
+            if (adminControls) adminControls.style.display = 'block';
         } else if (isCoordinator(user)) {
             roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
-            adminControls.style.display = 'block';
+            if (adminControls) adminControls.style.display = 'block';
         } else {
-            adminControls.style.display = 'none';
+            if (adminControls) adminControls.style.display = 'none';
         }
         
         authButtons.innerHTML = `
+            <div id="adminControls" class="admin-controls" style="display: none;">
+                <button class="admin-btn" onclick="showAdminPanel()">Admin Panel</button>
+            </div>
             <span class="user-display">Welcome, ${user}${roleBadge}</span>
             <button class="auth-btn login-btn" onclick="logout()">Logout</button>
         `;
@@ -388,7 +393,6 @@ function updateAuthDisplay() {
             <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
             <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
         `;
-        adminControls.style.display = 'none';
     }
     loadMessages();
 }
