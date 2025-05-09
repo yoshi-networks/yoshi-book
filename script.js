@@ -581,6 +581,14 @@ async function showAdminPanel() {
         if (isAdminUser) {
             await updateCoordinatorsList();
         }
+
+        // Add close button functionality
+        const closeBtn = modal.querySelector('.close');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                modal.style.display = 'none';
+            };
+        }
     } catch (error) {
         console.error('Error showing admin panel:', error);
         showNotification('Error loading admin panel');
