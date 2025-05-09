@@ -584,43 +584,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Add these new functions
-function showAdminPanel() {
-    const adminPanel = document.getElementById('adminPanel');
-    adminPanel.style.display = 'flex';
-    updateBannedUsersList();
-    updateCoordinatorsList();
-}
-
-function appointCoordinator() {
-    const username = document.getElementById('coordinatorUsername').value.trim();
-    if (!username) return;
-
-    const currentUser = localStorage.getItem('yoshibook_user');
-    if (!isAdmin(currentUser)) {
-        showNotification('Only admins can appoint coordinators');
-        return;
-    }
-
-    // Check if user exists in Firebase
-    const userRef = ref(database, `usedDisplayNames/${username}`);
-    get(userRef).then((snapshot) => {
-        if (!snapshot.exists()) {
-            showNotification('User does not exist');
-            return;
-        }
-
-        // Set role in both localStorage and Firebase
-        setUserRole(username, 'coordinator');
-        // Store in Firebase for persistence
-        set(ref(database, `roles/${username}`), 'coordinator');
-        
-        showNotification(`Appointed ${username} as coordinator`);
-        document.getElementById('coordinatorUsername').value = '';
-        updateCoordinatorsList();
-        updateAuthDisplay();
-    }).catch(handleFirebaseError);
-}
-
 function banUserFromPanel() {
     const username = document.getElementById('banUsername').value.trim();
     if (!username) return;
