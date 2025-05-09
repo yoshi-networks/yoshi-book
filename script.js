@@ -23,13 +23,13 @@ let messagesLoaded = false;
 // Update the bad words list and add enhanced filtering
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell ', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai', 'nigga'
+    'damn', 'hell ', 'piss', 'whore', 'slut', 'retard', 'nigger', 'nigga', 'faggot', 'kai'
 ];
 
 // Add spam prevention variables
 const SPAM_LIMIT = 1; // Number of messages
 const SPAM_WINDOW = 3000; // Time window in milliseconds (3 seconds)
-const MAX_MESSAGE_LENGTH = 100; // Character limit
+const MAX_MESSAGE_LENGTH = 200; // Character limit
 
 // Add message tracking for spam prevention
 let messageHistory = [];
@@ -229,7 +229,33 @@ async function unbanUser(username) {
     }
 }
 
-// Message functions
+// Add this helper function to format timestamps
+function formatTimestamp(timestamp) {
+    const now = Date.now();
+    const messageTime = timestamp;
+    const diffInSeconds = Math.floor((now - messageTime) / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    const diffInYears = Math.floor(diffInDays / 365);
+
+    if (diffInSeconds < 60) {
+        return 'just now';
+    } else if (diffInMinutes < 60) {
+        return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
+    } else if (diffInHours < 24) {
+        return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
+    } else if (diffInDays < 7) {
+        return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`;
+    } else if (diffInWeeks < 52) {
+        return `${diffInWeeks} week${diffInWeeks === 1 ? '' : 's'} ago`;
+    } else {
+        return `${diffInYears} year${diffInYears === 1 ? '' : 's'} ago`;
+    }
+}
+
+// Update the sendMessage function to store the timestamp
 async function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
@@ -257,13 +283,14 @@ async function sendMessage() {
     }
 
     const filteredMessage = filterBadWords(messageText);
+    const timestamp = Date.now(); // Store the timestamp as milliseconds
     
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: timestamp, // Store the raw timestamp
         isUser: user !== 'Anonymous',
-        createdAt: Date.now()
+        createdAt: timestamp
     };
     
     const messagesRef = ref(database, 'messages');
@@ -320,6 +347,7 @@ function loadMessages() {
     });
 }
 
+// Update the displayMessage function to show formatted timestamps
 async function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
@@ -337,10 +365,13 @@ async function displayMessage(messageData, messageKey) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
     }
     
+    // Format the timestamp
+    const formattedTime = formatTimestamp(messageData.timestamp);
+    
     messageElement.innerHTML = `
         <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
         <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-        <span class="timestamp">${messageData.timestamp}</span>
+        <span class="timestamp">${formattedTime}</span>
     `;
     
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
@@ -365,6 +396,14 @@ async function displayMessage(messageData, messageKey) {
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // Update the timestamp every minute
+    setInterval(() => {
+        const timestampElement = messageElement.querySelector('.timestamp');
+        if (timestampElement) {
+            timestampElement.textContent = formatTimestamp(messageData.timestamp);
+        }
+    }, 60000); // Update every minute
 }
 
 // Auth functions
