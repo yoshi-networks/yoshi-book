@@ -314,10 +314,69 @@ async function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
     const messageUser = messageData.displayName;
-    
+
+    // determine roles
+    const isAdminUser    = await isAdmin(currentUser);
+    const isCoordUser    = await isCoordinator(currentUser);
+    const authorIsAdmin  = await isAdmin(messageUser);
+    const authorIsCoord  = await isCoordinator(messageUser);
+
+    // build role badge
+    let roleBadge = '';
+    if (authorIsAdmin)      roleBadge = '<span class="role-badge admin">Admin</span>';
+    else if (authorIsCoord) roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
+
+    // create message element
     const messageElement = document.createElement('div');
-    messageElement.classList.add('message');
-    messageElement.classList.add(isCurrentUser ? 'user' : 'other');
+    messageElement.classList.add('message', isCurrentUser ? 'user' : 'other');
+    messageElement.innerHTML = `
+        <span class="username">${escapeHtml(messageUser)}${roleBadge}</span>
+        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
+        <span class="timestamp">${messageData.timestamp}</span>
+    `;
+
+    // click handler for selection modes
+    messageElement.addEventListener('click', () => handleMessageClick(messageElement));
+
+    // determine permissions
+    const canDelete = isCurrentUser
+                   || isAdminUser
+                   || (isCoordUser && !authorIsAdmin && !authorIsCoord);
+    const canBan    = (isAdminUser || isCoordUser)
+                   && !authorIsAdmin
+                   && !authorIsCoord
+                   && messageUser !== currentUser;
+
+    // add Delete button if allowed
+    if (canDelete) {
+        const delBtn = document.createElement('button');
+        delBtn.classList.add('delete-btn');
+        delBtn.innerText = '×';
+        delBtn.onclick = e => {
+            e.stopPropagation();
+            deleteMessage(messageKey, messageUser);
+        };
+        messageElement.appendChild(delBtn);
+    }
+
+    // add Ban button if allowed
+    if (canBan) {
+        const banBtn = document.createElement('button');
+        banBtn.classList.add('ban-btn');
+        banBtn.innerText = 'Ban';
+        banBtn.onclick = e => {
+            e.stopPropagation();
+            banUser(messageUser);
+        };
+        messageElement.appendChild(banBtn);
+    }
+
+    // append to chat and scroll
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
     
     let roleBadge = '';
     if (await isAdmin(messageUser)) {
