@@ -157,39 +157,91 @@ async function canModerate(username) {
 }
 
 // Ban system
-function banUser(username) {
-    const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
-    if (!bannedUsers.includes(username)) {
-        bannedUsers.push(username);
-        localStorage.setItem('yoshibook_banned', JSON.stringify(bannedUsers));
-        // Store in Firebase
-        set(ref(database, `banned/${username}`), true);
+async function isBanned(username) {
+    try {
+        const bannedRef = ref(database, `banned/${username}`);
+        const snapshot = await get(bannedRef);
+        if (snapshot.exists()) {
+            return true;
+        }
+    } catch (error) {
+        console.error('Error checking ban status:', error);
     }
-}
-
-function unbanUser(username) {
-    const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
-    const index = bannedUsers.indexOf(username);
-    if (index > -1) {
-        bannedUsers.splice(index, 1);
-        localStorage.setItem('yoshibook_banned', JSON.stringify(bannedUsers));
-        // Remove from Firebase
-        remove(ref(database, `banned/${username}`));
-    }
-}
-
-function isBanned(username) {
+    
+    // Fallback to localStorage
     const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
     return bannedUsers.includes(username);
 }
 
+async function banUser(username) {
+    try {
+        // Store in Firebase
+        await set(ref(database, `banned/${username}`), true);
+        
+        // Update localStorage
+        const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
+        if (!bannedUsers.includes(username)) {
+            bannedUsers.push(username);
+            localStorage.setItem('yoshibook_banned', JSON.stringify(bannedUsers));
+        }
+        
+        // If the banned user is currently logged in, disable their input
+        const currentUser = localStorage.getItem('yoshibook_user');
+        if (currentUser === username) {
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) {
+                messageInput.disabled = true;
+                showNotification('You have been banned!');
+            }
+        }
+    } catch (error) {
+        console.error('Error banning user:', error);
+        throw error;
+    }
+}
+
+async function unbanUser(username) {
+    try {
+        // Remove from Firebase
+        await remove(ref(database, `banned/${username}`));
+        
+        // Update localStorage
+        const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
+        const index = bannedUsers.indexOf(username);
+        if (index > -1) {
+            bannedUsers.splice(index, 1);
+            localStorage.setItem('yoshibook_banned', JSON.stringify(bannedUsers));
+        }
+        
+        // If the unbanned user is currently logged in, enable their input
+        const currentUser = localStorage.getItem('yoshibook_user');
+        if (currentUser === username) {
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) {
+                messageInput.disabled = false;
+            }
+        }
+    } catch (error) {
+        console.error('Error unbanning user:', error);
+        throw error;
+    }
+}
+
 // Message functions
-function sendMessage() {
+async function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
     const user = localStorage.getItem('yoshibook_user') || 'Anonymous';
 
     if (messageText === '') return;
+
+    // Check if user is banned
+    if (await isBanned(user)) {
+        showNotification('You have been banned!');
+        messageInput.value = ''; // Clear the input
+        messageInput.disabled = true; // Disable the input
+        return;
+    }
 
     // Check message length
     if (messageText.length > MAX_MESSAGE_LENGTH) {
@@ -199,11 +251,6 @@ function sendMessage() {
 
     // Check for spam
     if (isSpamming()) {
-        return;
-    }
-
-    if (isBanned(user)) {
-        showNotification('You have been banned!');
         return;
     }
 
@@ -668,12 +715,13 @@ window.showAdminPanel = showAdminPanel;
 window.updateAllMessages = updateAllMessages;
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const cookieUser = getCookie('yoshibook_user');
     if (cookieUser) {
         localStorage.setItem('yoshibook_user', cookieUser);
     }
-    updateAuthDisplay();
+    await updateAuthDisplay();
+    await checkBanStatus();
     loadMessages();
     
     // Close modals when clicking outside
@@ -779,4 +827,18 @@ function stopBanSelection() {
     document.querySelectorAll('.message').forEach(message => {
         message.classList.remove('selectable', 'selecting');
     });
+}
+// Add function to check ban status on page load
+async function checkBanStatus() {
+    const user = localStorage.getItem('yoshibook_user');
+    if (user) {
+        const isUserBanned = await isBanned(user);
+        const messageInput = document.getElementById('message-input');
+        if (messageInput) {
+            messageInput.disabled = isUserBanned;
+            if (isUserBanned) {
+                showNotification('You have been banned!');
+            }
+        }
+    }
 }
