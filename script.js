@@ -278,18 +278,14 @@ async function deleteMessage(messageId, messageAuthor) {
     try {
         const currentUser = localStorage.getItem('yoshibook_user');
         const isUserAdmin = await isAdmin(currentUser);
-        const isCoord = await isCoordinator(currentUser);
-        const isMessageAuthorAdmin = await isAdmin(messageAuthor);
-        const isMessageAuthorCoord = await isCoordinator(messageAuthor);
+        const isUserCoord = await isCoordinator(currentUser);
         
         // Allow deletion if:
-        // 1. User is admin (can delete anything)
-        // 2. User is coordinator and message is from a regular user
-        // 3. User is the message author
-        if (isUserAdmin || 
-            (isCoord && !isMessageAuthorCoord && !isMessageAuthorAdmin) || 
-            currentUser === messageAuthor) {
+        // 1. User is admin or coordinator (can delete anything)
+        // 2. User is the message author
+        if (isUserAdmin || isUserCoord || currentUser === messageAuthor) {
             await remove(ref(database, `messages/${messageId}`));
+            showNotification('Message deleted');
         } else {
             showNotification('You cannot delete this message');
         }
@@ -338,17 +334,12 @@ async function displayMessage(messageData, messageKey) {
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
     
     // Add delete button if:
-    // 1. User is admin (can delete anything)
-    // 2. User is coordinator and message is from a regular user
-    // 3. User is the message author
+    // 1. User is admin or coordinator (can delete anything)
+    // 2. User is the message author
     const isUserAdmin = await isAdmin(currentUser);
     const isUserCoord = await isCoordinator(currentUser);
-    const isMessageAuthorAdmin = await isAdmin(messageUser);
-    const isMessageAuthorCoord = await isCoordinator(messageUser);
     
-    if (isUserAdmin || 
-        (isUserCoord && !isMessageAuthorCoord && !isMessageAuthorAdmin) || 
-        (isCurrentUser && currentUser !== 'Anonymous')) {
+    if (isUserAdmin || isUserCoord || (isCurrentUser && currentUser !== 'Anonymous')) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
         deleteBtn.innerText = '×';
