@@ -549,13 +549,13 @@ function startCoordinatorSelection() {
 }
 
 // Update handleMessageClick to handle coordinator selection
-function handleMessageClick(messageElement) {
+async function handleMessageClick(messageElement) {
     if (isSelectingForBan) {
         const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
         const currentUser = localStorage.getItem('yoshibook_user');
 
         // Check if trying to ban a moderator
-        if (canModerate(username)) {
+        if (await canModerate(username)) {
             showNotification('Cannot ban moderators');
             stopBanSelection();
             return;
@@ -574,7 +574,7 @@ function handleMessageClick(messageElement) {
         const currentUser = localStorage.getItem('yoshibook_user');
 
         // Check if trying to appoint a moderator
-        if (canModerate(username)) {
+        if (await canModerate(username)) {
             showNotification('User is already a moderator');
             stopCoordinatorSelection();
             return;
