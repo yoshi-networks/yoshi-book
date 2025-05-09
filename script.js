@@ -446,10 +446,11 @@ const exportedFunctions = {
     unbanUser,
     banUser,
     isBanned,
-    canModerate
+    canModerate,
+    updateBannedUsersList
 };
 
-// Make sure to export all functions to window
+// Export all functions to window
 Object.assign(window, exportedFunctions);
 
 // Also explicitly export these functions
@@ -522,8 +523,10 @@ function banUserFromPanel() {
     updateBannedUsersList();
 }
 
-function unbanUserFromPanel() {
-    const username = document.getElementById('unbanUsername').value.trim();
+function unbanUserFromPanel(username) {
+    if (!username) {
+        username = document.getElementById('unbanUsername').value.trim();
+    }
     if (!username) return;
 
     const currentUser = localStorage.getItem('yoshibook_user');
@@ -548,7 +551,7 @@ function updateBannedUsersList() {
         userDiv.className = 'banned-user';
         userDiv.innerHTML = `
             <span>${escapeHtml(username)}</span>
-            <button onclick="unbanUser('${escapeHtml(username)}'); updateBannedUsersList();">Unban</button>
+            <button onclick="window.unbanUserFromPanel('${escapeHtml(username)}')">Unban</button>
         `;
         bannedUsersList.appendChild(userDiv);
     });
