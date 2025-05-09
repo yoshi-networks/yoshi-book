@@ -21,10 +21,7 @@ const database = getDatabase(app);
 let messagesLoaded = false;
 
 // Update the bad words list and add enhanced filtering
-const BAD_WORDS = [
-    'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell ', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai', 'nigga'
-];
+const BAD_WORDS = [];
 
 // Add spam prevention variables
 const SPAM_LIMIT = 1; // Number of messages
