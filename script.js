@@ -27,7 +27,7 @@ const BAD_WORDS = [
 ];
 
 // Add spam prevention variables
-const SPAM_LIMIT = 5; // Number of messages
+const SPAM_LIMIT = 3; // Number of messages
 const SPAM_WINDOW = 3000; // Time window in milliseconds (3 seconds)
 const MAX_MESSAGE_LENGTH = 100; // Character limit
 
