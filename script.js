@@ -61,7 +61,7 @@ function isSpamming() {
     // Check if user has sent too many messages
     if (messageHistory.length >= SPAM_LIMIT) {
         const timeLeft = SPAM_WINDOW - (now - messageHistory[0]);
-        showNotification(Please wait ${Math.ceil(timeLeft / 1000)} seconds before sending more messages);
+        showNotification(`Please wait ${Math.ceil(timeLeft / 1000)} seconds before sending more messages`);
         return true;
     }
     
