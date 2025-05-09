@@ -608,3 +608,6 @@ function stopBanSelection() {
         message.classList.remove('selectable', 'selecting');
     });
 }
+
+// Make sure to export the function to window
+window.startBanSelection = startBanSelection;
