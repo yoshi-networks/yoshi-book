@@ -654,3 +654,18 @@ body {
     background-color: #388e3c;
     transform: translateY(-2px);
 }
+
+.admin-button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 5px 0;
+    transition: background-color 0.3s;
+}
+
+.admin-button:hover {
+    background-color: #45a049;
+}
