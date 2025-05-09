@@ -388,10 +388,10 @@ function updateAuthDisplay() {
         
         authButtons.innerHTML = `
             <div id="adminControls" class="admin-controls" style="display: ${canModerate(user) ? 'block' : 'none'}">
-                <button class="admin-btn" onclick="showAdminPanel()">${isAdmin(user) ? 'Admin Panel' : 'Coordinator Panel'}</button>
+                <button class="admin-btn" onclick="window.showAdminPanel()">${isAdmin(user) ? 'Admin Panel' : 'Coordinator Panel'}</button>
             </div>
             <span class="user-display">Welcome, ${user}${roleBadge}</span>
-            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
+            <button class="auth-btn login-btn" onclick="window.logout()">Logout</button>
         `;
     } else {
         authButtons.innerHTML = `
@@ -479,16 +479,25 @@ function removeCoordinator(username) {
 // Keep the original showAdminPanel function with all its functionality
 function showAdminPanel() {
     const adminPanel = document.getElementById('adminPanel');
+    if (!adminPanel) {
+        console.error('Admin panel element not found');
+        return;
+    }
+
     const currentUser = localStorage.getItem('yoshibook_user');
     const isAdminUser = isAdmin(currentUser);
     
     // Update panel title and content based on role
     const panelTitle = adminPanel.querySelector('h2');
-    panelTitle.textContent = isAdminUser ? 'Admin Controls' : 'Coordinator Controls';
+    if (panelTitle) {
+        panelTitle.textContent = isAdminUser ? 'Admin Controls' : 'Coordinator Controls';
+    }
     
     // Show/hide sections based on role
     const appointSection = adminPanel.querySelector('.admin-section:first-child');
-    appointSection.style.display = isAdminUser ? 'block' : 'none';
+    if (appointSection) {
+        appointSection.style.display = isAdminUser ? 'block' : 'none';
+    }
     
     adminPanel.style.display = 'flex';
     updateBannedUsersList();
