@@ -638,3 +638,19 @@ body {
     padding: 10px;
     font-style: italic;
 }
+
+.coordinator-btn {
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.coordinator-btn:hover {
+    background-color: #388e3c;
+    transform: translateY(-2px);
+}
