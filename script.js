@@ -513,7 +513,7 @@ function updateCoordinatorsList() {
 }
 
 // Add function to remove coordinator
-function removeCoordinator(username) {
+async function removeCoordinator(username) {
     const currentUser = localStorage.getItem('yoshibook_user');
     if (!await isAdmin(currentUser)) {
         showNotification('Only admins can remove coordinators');
@@ -542,11 +542,11 @@ async function showAdminPanel() {
                     <h2>Admin Panel</h2>
                     <div class="admin-section">
                         <h3>Ban User</h3>
-                        <button onclick="startBanSelection()" class="admin-button">Select Message to Ban User</button>
+                        <button onclick="window.startBanSelection()" class="admin-button">Select Message to Ban User</button>
                     </div>
                     <div class="admin-section">
                         <h3>Appoint Coordinator</h3>
-                        <button onclick="startCoordinatorSelection()" class="admin-button">Select Message to Appoint Coordinator</button>
+                        <button onclick="window.startCoordinatorSelection()" class="admin-button">Select Message to Appoint Coordinator</button>
                     </div>
                     <div class="admin-section">
                         <h3>Banned Users</h3>
@@ -566,7 +566,7 @@ async function showAdminPanel() {
                     <h2>Coordinator Panel</h2>
                     <div class="admin-section">
                         <h3>Ban User</h3>
-                        <button onclick="startBanSelection()" class="admin-button">Select Message to Ban User</button>
+                        <button onclick="window.startBanSelection()" class="admin-button">Select Message to Ban User</button>
                     </div>
                     <div class="admin-section">
                         <h3>Banned Users</h3>
@@ -588,7 +588,7 @@ async function showAdminPanel() {
 }
 
 // Add new function to start coordinator selection
-function startCoordinatorSelection() {
+async function startCoordinatorSelection() {
     const currentUser = localStorage.getItem('yoshibook_user');
     if (!await isAdmin(currentUser)) {
         showNotification('Only admins can appoint coordinators');
@@ -747,7 +747,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Add these new functions
-function banUserFromPanel() {
+async function banUserFromPanel() {
     const username = document.getElementById('banUsername').value.trim();
     if (!username) return;
 
@@ -768,7 +768,7 @@ function banUserFromPanel() {
     updateBannedUsersList();
 }
 
-function unbanUserFromPanel(username) {
+async function unbanUserFromPanel(username) {
     if (!username) return;
 
     const currentUser = localStorage.getItem('yoshibook_user');
@@ -814,7 +814,7 @@ function updateCharCount() {
     }
 }
 
-function startBanSelection() {
+async function startBanSelection() {
     const currentUser = localStorage.getItem('yoshibook_user');
     if (!await canModerate(currentUser)) {
         showNotification('You do not have permission to ban users');
@@ -842,6 +842,7 @@ function stopBanSelection() {
         message.classList.remove('selectable', 'selecting');
     });
 }
+
 // Add function to check ban status on page load
 async function checkBanStatus() {
     const user = localStorage.getItem('yoshibook_user');
