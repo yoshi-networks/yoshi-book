@@ -476,7 +476,7 @@ function removeCoordinator(username) {
     updateAuthDisplay();
 }
 
-// Update the showAdminPanel function to show different content for coordinators
+// Keep the original showAdminPanel function with all its functionality
 function showAdminPanel() {
     const adminPanel = document.getElementById('adminPanel');
     const currentUser = localStorage.getItem('yoshibook_user');
@@ -528,7 +528,7 @@ function appointCoordinator() {
     }).catch(handleFirebaseError);
 }
 
-// Update the exported functions at the bottom of script.js
+// Update the exported functions section at the bottom of the file
 const exportedFunctions = {
     showLoginModal,
     showSignupModal,
@@ -550,8 +550,8 @@ const exportedFunctions = {
     isBanned,
     canModerate,
     updateBannedUsersList,
-    removeCoordinator,
-    updateCoordinatorsList
+    updateCoordinatorsList,
+    removeCoordinator
 };
 
 // Export all functions to window
@@ -565,6 +565,7 @@ window.unbanUser = unbanUser;
 window.banUser = banUser;
 window.isBanned = isBanned;
 window.canModerate = canModerate;
+window.showAdminPanel = showAdminPanel;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
