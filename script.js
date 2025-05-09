@@ -272,42 +272,26 @@ async function sendMessage() {
         .catch(handleFirebaseError);
 }
 
-function deleteMessage(messageKey, messageElement) {
+async function deleteMessage(messageId, messageAuthor) {
     const currentUser = localStorage.getItem('yoshibook_user');
-    const messageUser = messageElement.querySelector('.username').textContent.split(':')[0].trim();
+    const isAdmin = await isAdmin(currentUser);
+    const isCoord = await isCoordinator(currentUser);
     
-    if (!currentUser) return;
-
-    const canDelete = isAdmin(currentUser) || 
-                     (isCoordinator(currentUser) && !canModerate(messageUser)) ||
-                     (currentUser === messageUser);
-
-    if (canDelete) {
-        showNotification('Delete this message?');
-        const notification = document.querySelector('.notification');
-        
-        const buttonContainer = document.createElement('div');
-        buttonContainer.className = 'notification-buttons';
-        
-        const confirmBtn = document.createElement('button');
-        confirmBtn.textContent = 'Delete';
-        confirmBtn.onclick = () => {
-            const messageRef = ref(database, `messages/${messageKey}`);
-            remove(messageRef)
-                .then(() => {
-                    messageElement.remove();
-                    notification.remove();
-                })
-                .catch(handleFirebaseError);
-        };
-        
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.onclick = () => notification.remove();
-        
-        buttonContainer.appendChild(confirmBtn);
-        buttonContainer.appendChild(cancelBtn);
-        notification.appendChild(buttonContainer);
+    // Allow deletion if:
+    // 1. User is admin (can delete anything)
+    // 2. User is coordinator and message is from a regular user
+    // 3. User is the message author
+    if (isAdmin || 
+        (isCoord && !(await isCoordinator(messageAuthor)) && !(await isAdmin(messageAuthor))) || 
+        currentUser === messageAuthor) {
+        try {
+            await remove(ref(database, `messages/${messageId}`));
+        } catch (error) {
+            console.error('Error deleting message:', error);
+            showNotification('Error deleting message');
+        }
+    } else {
+        showNotification('You cannot delete this message');
     }
 }
 
@@ -355,7 +339,7 @@ async function displayMessage(messageData, messageKey) {
         deleteBtn.innerText = '×';
         deleteBtn.onclick = (e) => {
             e.stopPropagation();
-            deleteMessage(messageKey, messageElement);
+            deleteMessage(messageKey, messageUser);
         };
         messageElement.appendChild(deleteBtn);
     }
@@ -540,37 +524,58 @@ function removeCoordinator(username) {
 
 // Update the admin panel HTML section in chat.html to replace the input with a button
 function showAdminPanel() {
-    const adminPanel = document.getElementById('adminPanel');
-    if (!adminPanel) {
-        console.error('Admin panel element not found');
-        return;
-    }
-
+    const modal = document.getElementById('adminModal');
     const currentUser = localStorage.getItem('yoshibook_user');
-    const isAdminUser = isAdmin(currentUser);
     
-    // Update panel title and content based on role
-    const panelTitle = adminPanel.querySelector('h2');
-    if (panelTitle) {
-        panelTitle.textContent = isAdminUser ? 'Admin Controls' : 'Coordinator Controls';
-    }
-    
-    // Show/hide sections based on role
-    const appointSection = adminPanel.querySelector('.admin-section:first-child');
-    if (appointSection) {
-        appointSection.innerHTML = `
-            <h3>Appoint Coordinator</h3>
-            <button onclick="window.startCoordinatorSelection()" class="coordinator-btn">Select Message to Appoint Coordinator</button>
-            <div id="coordinatorsList" class="coordinators-list"></div>
-        `;
-        appointSection.style.display = isAdminUser ? 'block' : 'none';
-    }
-    
-    adminPanel.style.display = 'flex';
-    updateBannedUsersList();
-    if (isAdminUser) {
-        updateCoordinatorsList();
-    }
+    isAdmin(currentUser).then(isAdmin => {
+        if (isAdmin) {
+            // Admin panel content
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close">&times;</span>
+                    <h2>Admin Panel</h2>
+                    <div class="admin-section">
+                        <h3>Ban User</h3>
+                        <button onclick="startBanSelection()" class="admin-button">Select Message to Ban User</button>
+                    </div>
+                    <div class="admin-section">
+                        <h3>Appoint Coordinator</h3>
+                        <button onclick="startCoordinatorSelection()" class="admin-button">Select Message to Appoint Coordinator</button>
+                    </div>
+                    <div class="admin-section">
+                        <h3>Banned Users</h3>
+                        <div id="banned-users-list"></div>
+                    </div>
+                    <div class="admin-section">
+                        <h3>Coordinators</h3>
+                        <div id="coordinators-list"></div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Coordinator panel content
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close">&times;</span>
+                    <h2>Coordinator Panel</h2>
+                    <div class="admin-section">
+                        <h3>Ban User</h3>
+                        <button onclick="startBanSelection()" class="admin-button">Select Message to Ban User</button>
+                    </div>
+                    <div class="admin-section">
+                        <h3>Banned Users</h3>
+                        <div id="banned-users-list"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        modal.style.display = 'block';
+        updateBannedUsersList();
+        if (isAdmin) {
+            updateCoordinatorsList();
+        }
+    });
 }
 
 // Add new function to start coordinator selection
@@ -582,7 +587,7 @@ function startCoordinatorSelection() {
     }
 
     // Close admin panel
-    document.getElementById('adminPanel').style.display = 'none';
+    document.getElementById('adminModal').style.display = 'none';
     
     // Show coordinator selection notification
     showNotification('Select a message to appoint its author as coordinator');
@@ -770,7 +775,7 @@ function unbanUserFromPanel(username) {
 
 function updateBannedUsersList() {
     const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
-    const bannedUsersList = document.getElementById('bannedUsersList');
+    const bannedUsersList = document.getElementById('banned-users-list');
     bannedUsersList.innerHTML = '';
 
     bannedUsers.forEach(username => {
@@ -808,7 +813,7 @@ function startBanSelection() {
     }
 
     // Close admin panel
-    document.getElementById('adminPanel').style.display = 'none';
+    document.getElementById('adminModal').style.display = 'none';
     
     // Show ban selection notification
     showNotification('Who would you like to ban?');
