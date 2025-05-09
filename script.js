@@ -337,7 +337,18 @@ async function displayMessage(messageData, messageKey) {
     
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
     
-    if (await canModerate(currentUser) || (isCurrentUser && currentUser !== 'Anonymous')) {
+    // Add delete button if:
+    // 1. User is admin (can delete anything)
+    // 2. User is coordinator and message is from a regular user
+    // 3. User is the message author
+    const isUserAdmin = await isAdmin(currentUser);
+    const isUserCoord = await isCoordinator(currentUser);
+    const isMessageAuthorAdmin = await isAdmin(messageUser);
+    const isMessageAuthorCoord = await isCoordinator(messageUser);
+    
+    if (isUserAdmin || 
+        (isUserCoord && !isMessageAuthorCoord && !isMessageAuthorAdmin) || 
+        (isCurrentUser && currentUser !== 'Anonymous')) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
         deleteBtn.innerText = '×';
@@ -487,7 +498,9 @@ function updateMessagePositions() {
 
 // Add function to update coordinators list
 function updateCoordinatorsList() {
-    const coordinatorsList = document.getElementById('coordinatorsList');
+    const coordinatorsList = document.getElementById('coordinators-list');
+    if (!coordinatorsList) return;
+    
     const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
     coordinatorsList.innerHTML = '';
 
