@@ -273,25 +273,27 @@ async function sendMessage() {
 }
 
 async function deleteMessage(messageId, messageAuthor) {
-    const currentUser = localStorage.getItem('yoshibook_user');
-    const isAdmin = await isAdmin(currentUser);
-    const isCoord = await isCoordinator(currentUser);
-    
-    // Allow deletion if:
-    // 1. User is admin (can delete anything)
-    // 2. User is coordinator and message is from a regular user
-    // 3. User is the message author
-    if (isAdmin || 
-        (isCoord && !(await isCoordinator(messageAuthor)) && !(await isAdmin(messageAuthor))) || 
-        currentUser === messageAuthor) {
-        try {
+    try {
+        const currentUser = localStorage.getItem('yoshibook_user');
+        const isAdmin = await isAdmin(currentUser);
+        const isCoord = await isCoordinator(currentUser);
+        const isMessageAuthorAdmin = await isAdmin(messageAuthor);
+        const isMessageAuthorCoord = await isCoordinator(messageAuthor);
+        
+        // Allow deletion if:
+        // 1. User is admin (can delete anything)
+        // 2. User is coordinator and message is from a regular user
+        // 3. User is the message author
+        if (isAdmin || 
+            (isCoord && !isMessageAuthorCoord && !isMessageAuthorAdmin) || 
+            currentUser === messageAuthor) {
             await remove(ref(database, `messages/${messageId}`));
-        } catch (error) {
-            console.error('Error deleting message:', error);
-            showNotification('Error deleting message');
+        } else {
+            showNotification('You cannot delete this message');
         }
-    } else {
-        showNotification('You cannot delete this message');
+    } catch (error) {
+        console.error('Error deleting message:', error);
+        showNotification('Error deleting message');
     }
 }
 
