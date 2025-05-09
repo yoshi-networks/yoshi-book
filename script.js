@@ -277,7 +277,7 @@ async function sendMessage() {
 async function deleteMessage(messageId, messageAuthor) {
     try {
         const currentUser = localStorage.getItem('yoshibook_user');
-        const isAdmin = await isAdmin(currentUser);
+        const isUserAdmin = await isAdmin(currentUser);
         const isCoord = await isCoordinator(currentUser);
         const isMessageAuthorAdmin = await isAdmin(messageAuthor);
         const isMessageAuthorCoord = await isCoordinator(messageAuthor);
@@ -286,7 +286,7 @@ async function deleteMessage(messageId, messageAuthor) {
         // 1. User is admin (can delete anything)
         // 2. User is coordinator and message is from a regular user
         // 3. User is the message author
-        if (isAdmin || 
+        if (isUserAdmin || 
             (isCoord && !isMessageAuthorCoord && !isMessageAuthorAdmin) || 
             currentUser === messageAuthor) {
             await remove(ref(database, `messages/${messageId}`));
@@ -711,7 +711,9 @@ const exportedFunctions = {
     updateBannedUsersList,
     updateCoordinatorsList,
     removeCoordinator,
-    updateAllMessages
+    updateAllMessages,
+    isAdmin,
+    isCoordinator
 };
 
 // Export all functions to window
@@ -727,6 +729,8 @@ window.isBanned = isBanned;
 window.canModerate = canModerate;
 window.showAdminPanel = showAdminPanel;
 window.updateAllMessages = updateAllMessages;
+window.isAdmin = isAdmin;
+window.isCoordinator = isCoordinator;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
