@@ -112,7 +112,7 @@ const ADMIN_USERNAME = 'YoshiNetworks';
 // Role management
 async function getUserRole(username) {
     try {
-        const roleRef = ref(database, roles/${username});
+        const roleRef = ref(database, `roles/${username}`);
         const snapshot = await get(roleRef);
         if (snapshot.exists()) {
             const role = snapshot.val();
@@ -133,7 +133,7 @@ async function getUserRole(username) {
 async function setUserRole(username, role) {
     try {
         // Update Firebase first
-        await set(ref(database, roles/${username}), role);
+        await set(ref(database, `roles/${username}`), role);
         // Then update localStorage
         const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
         roles[username] = role;
@@ -179,7 +179,7 @@ async function isBanned(username) {
 async function banUser(username) {
     try {
         // Store in Firebase
-        await set(ref(database, banned/${username}), true);
+        await set(ref(database, `banned/${username}`), true);
         
         // Update localStorage
         const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
@@ -206,7 +206,7 @@ async function banUser(username) {
 async function unbanUser(username) {
     try {
         // Remove from Firebase
-        await remove(ref(database, banned/${username}));
+        await remove(ref(database, `banned/${username}`));
         
         // Update localStorage
         const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
@@ -248,7 +248,7 @@ async function sendMessage() {
 
     // Check message length
     if (messageText.length > MAX_MESSAGE_LENGTH) {
-        showNotification(Message too long! Maximum ${MAX_MESSAGE_LENGTH} characters allowed);
+        showNotification(`Message too long! Maximum ${MAX_MESSAGE_LENGTH} characters allowed`);
         return;
     }
 
@@ -330,11 +330,12 @@ async function displayMessage(messageData, messageKey) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
     }
     
-    messageElement.innerHTML = 
-        <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
-        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-        <span class="timestamp">${messageData.timestamp}</span>
-    ;
+    messageElement.innerHTML = `
+      <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
+      <div class="message-text">${escapeHtml(messageData.messageText)}</div>
+      <span class="timestamp">${messageData.timestamp}</span>
+    `;
+
     
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
     
@@ -632,7 +633,7 @@ async function updateAllMessages() {
         }
         
         const usernameElement = message.querySelector('.username');
-        usernameElement.innerHTML = ${escapeHtml(username)}:${roleBadge};
+        usernameElement.innerHTML = `${escapeHtml(username)}:${roleBadge}`;
     }
 }
 
@@ -649,7 +650,7 @@ async function handleMessageClick(messageElement) {
         }
 
         await banUser(username);
-        showNotification(${username} banned!);
+        showNotification(`${username} banned!`);
         stopBanSelection();
     } else if (isSelectingForCoordinator) {
         const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
@@ -776,7 +777,7 @@ async function banUserFromPanel() {
     }
 
     await banUser(username);
-    showNotification(Banned ${username});
+    showNotification(`Banned ${username}`);
     document.getElementById('banUsername').value = '';
     updateBannedUsersList();
 }
