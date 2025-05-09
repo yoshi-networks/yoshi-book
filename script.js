@@ -442,7 +442,11 @@ const exportedFunctions = {
     unbanUserFromPanel,
     startBanSelection,
     stopBanSelection,
-    handleMessageClick
+    handleMessageClick,
+    unbanUser,
+    banUser,
+    isBanned,
+    canModerate
 };
 
 // Make sure to export all functions to window
@@ -452,6 +456,10 @@ Object.assign(window, exportedFunctions);
 window.startBanSelection = startBanSelection;
 window.stopBanSelection = stopBanSelection;
 window.handleMessageClick = handleMessageClick;
+window.unbanUser = unbanUser;
+window.banUser = banUser;
+window.isBanned = isBanned;
+window.canModerate = canModerate;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
