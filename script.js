@@ -37,6 +37,9 @@ let messageHistory = [];
 // Add ban selection state
 let isSelectingForBan = false;
 
+// Add coordinator selection state
+let isSelectingForCoordinator = false;
+
 // Enhanced bad word filter
 function filterBadWords(text) {
     let filteredText = text;
@@ -487,7 +490,7 @@ function removeCoordinator(username) {
     updateAuthDisplay();
 }
 
-// Keep the original showAdminPanel function with all its functionality
+// Update the admin panel HTML section in chat.html to replace the input with a button
 function showAdminPanel() {
     const adminPanel = document.getElementById('adminPanel');
     if (!adminPanel) {
@@ -507,6 +510,11 @@ function showAdminPanel() {
     // Show/hide sections based on role
     const appointSection = adminPanel.querySelector('.admin-section:first-child');
     if (appointSection) {
+        appointSection.innerHTML = `
+            <h3>Appoint Coordinator</h3>
+            <button onclick="window.startCoordinatorSelection()" class="coordinator-btn">Select Message to Appoint Coordinator</button>
+            <div id="coordinatorsList" class="coordinators-list"></div>
+        `;
         appointSection.style.display = isAdminUser ? 'block' : 'none';
     }
     
@@ -517,43 +525,84 @@ function showAdminPanel() {
     }
 }
 
-// Update the appointCoordinator function to refresh the list
-function appointCoordinator() {
-    const username = document.getElementById('coordinatorUsername').value.trim();
-    if (!username) return;
-
+// Add new function to start coordinator selection
+function startCoordinatorSelection() {
     const currentUser = localStorage.getItem('yoshibook_user');
     if (!isAdmin(currentUser)) {
         showNotification('Only admins can appoint coordinators');
         return;
     }
 
-    // Check if user exists in Firebase
-    const userRef = ref(database, `usedDisplayNames/${username}`);
-    get(userRef).then((snapshot) => {
-        if (!snapshot.exists()) {
-            showNotification('User does not exist');
+    // Close admin panel
+    document.getElementById('adminPanel').style.display = 'none';
+    
+    // Show coordinator selection notification
+    showNotification('Select a message to appoint its author as coordinator');
+    
+    // Enable message selection
+    isSelectingForCoordinator = true;
+    
+    // Add selectable class to all messages
+    document.querySelectorAll('.message').forEach(message => {
+        message.classList.add('selectable');
+    });
+}
+
+// Update handleMessageClick to handle coordinator selection
+function handleMessageClick(messageElement) {
+    if (isSelectingForBan) {
+        const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
+        const currentUser = localStorage.getItem('yoshibook_user');
+
+        // Check if trying to ban a moderator
+        if (canModerate(username)) {
+            showNotification('Cannot ban moderators');
+            stopBanSelection();
             return;
         }
 
-        // Store in Firebase first
+        // Ban the user
+        banUser(username);
+        
+        // Show ban confirmation
+        showNotification(`${username} banned!`);
+        
+        // Reset selection state
+        stopBanSelection();
+    } else if (isSelectingForCoordinator) {
+        const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
+        const currentUser = localStorage.getItem('yoshibook_user');
+
+        // Check if trying to appoint a moderator
+        if (canModerate(username)) {
+            showNotification('User is already a moderator');
+            stopCoordinatorSelection();
+            return;
+        }
+
+        // Appoint as coordinator
+        setUserRole(username, 'coordinator');
+        // Store in Firebase
         set(ref(database, `roles/${username}`), 'coordinator')
             .then(() => {
-                // Then update localStorage
-                const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
-                roles[username] = 'coordinator';
-                localStorage.setItem('yoshibook_roles', JSON.stringify(roles));
-                
                 showNotification(`Appointed ${username} as coordinator`);
-                document.getElementById('coordinatorUsername').value = '';
                 updateCoordinatorsList();
                 updateAuthDisplay();
+                stopCoordinatorSelection();
             })
             .catch(handleFirebaseError);
-    }).catch(handleFirebaseError);
+    }
 }
 
-// Update the exported functions section at the bottom of the file
+// Add function to stop coordinator selection
+function stopCoordinatorSelection() {
+    isSelectingForCoordinator = false;
+    document.querySelectorAll('.message').forEach(message => {
+        message.classList.remove('selectable', 'selecting');
+    });
+}
+
+// Add to the exported functions
 const exportedFunctions = {
     showLoginModal,
     showSignupModal,
@@ -564,7 +613,8 @@ const exportedFunctions = {
     deleteMessage,
     handleKeyDown,
     showAdminPanel,
-    appointCoordinator,
+    startCoordinatorSelection,
+    stopCoordinatorSelection,
     banUserFromPanel,
     unbanUserFromPanel,
     startBanSelection,
@@ -697,29 +747,6 @@ function startBanSelection() {
     document.querySelectorAll('.message').forEach(message => {
         message.classList.add('selectable');
     });
-}
-
-function handleMessageClick(messageElement) {
-    if (!isSelectingForBan) return;
-
-    const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
-    const currentUser = localStorage.getItem('yoshibook_user');
-
-    // Check if trying to ban a moderator
-    if (canModerate(username)) {
-        showNotification('Cannot ban moderators');
-        stopBanSelection();
-        return;
-    }
-
-    // Ban the user
-    banUser(username);
-    
-    // Show ban confirmation
-    showNotification(`${username} banned!`);
-    
-    // Reset selection state
-    stopBanSelection();
 }
 
 function stopBanSelection() {
