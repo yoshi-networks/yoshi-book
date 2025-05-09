@@ -23,7 +23,7 @@ let messagesLoaded = false;
 // Update the bad words list and add enhanced filtering
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell ', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai', 'nigga'
+    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai'
 ];
 
 // Add spam prevention variables
@@ -61,12 +61,11 @@ function isSpamming() {
     // Check if user has sent too many messages
     if (messageHistory.length >= SPAM_LIMIT) {
         const timeLeft = SPAM_WINDOW - (now - messageHistory[0]);
-        // ← wrap the whole string in back-ticks, then close the ) 
         showNotification(`Please wait ${Math.ceil(timeLeft / 1000)} seconds before sending more messages`);
         return true;
     }
     
-    // record this message’s timestamp and allow send
+    // Add current message to history
     messageHistory.push(now);
     return false;
 }
@@ -162,7 +161,7 @@ async function canModerate(username) {
 // Ban system
 async function isBanned(username) {
     try {
-        const bannedRef = ref(database, banned/${username});
+        const bannedRef = ref(database, `banned/${username}`);
         const snapshot = await get(bannedRef);
         if (snapshot.exists()) {
             return true;
@@ -290,7 +289,7 @@ async function deleteMessage(messageId, messageAuthor) {
         if (isUserAdmin || 
             (isCoord && !isMessageAuthorCoord && !isMessageAuthorAdmin) || 
             currentUser === messageAuthor) {
-            await remove(ref(database, messages/${messageId}));
+            await remove(ref(database, `messages/${messageId}`));
         } else {
             showNotification('You cannot delete this message');
         }
@@ -331,11 +330,10 @@ async function displayMessage(messageData, messageKey) {
     }
     
     messageElement.innerHTML = `
-      <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
-      <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-      <span class="timestamp">${messageData.timestamp}</span>
+        <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
+        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
+        <span class="timestamp">${messageData.timestamp}</span>
     `;
-
     
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
     
@@ -369,7 +367,7 @@ function handleLogin(event) {
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
 
-    const userRef = ref(database, usedDisplayNames/${username});
+    const userRef = ref(database, `usedDisplayNames/${username}`);
     get(userRef).then((snapshot) => {
         if (snapshot.exists() && snapshot.val() === password) {
             setCookie('yoshibook_user', username, 7); // Store for 7 days
@@ -406,7 +404,7 @@ function handleSignup(event) {
             return;
         }
 
-        set(ref(database, usedDisplayNames/${username}), password)
+        set(ref(database, `usedDisplayNames/${username}`), password)
             .then(() => {
                 localStorage.setItem('yoshibook_user', username);
                 document.getElementById('signupModal').style.display = 'none';
@@ -438,18 +436,18 @@ async function updateAuthDisplay() {
         }
         
         const canMod = await canModerate(user);
-        authButtons.innerHTML = 
+        authButtons.innerHTML = `
             <div id="adminControls" class="admin-controls" style="display: ${canMod ? 'block' : 'none'}">
                 <button class="admin-btn" onclick="window.showAdminPanel()">${await isAdmin(user) ? 'Admin Panel' : 'Coordinator Panel'}</button>
             </div>
             <span class="user-display">Welcome, ${user}${roleBadge}</span>
             <button class="auth-btn login-btn" onclick="window.logout()">Logout</button>
-        ;
+        `;
     } else {
-        authButtons.innerHTML = 
+        authButtons.innerHTML = `
             <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
             <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
-        ;
+        `;
     }
     loadMessages();
 }
@@ -506,10 +504,10 @@ function updateCoordinatorsList() {
     coordinators.forEach(username => {
         const userDiv = document.createElement('div');
         userDiv.className = 'coordinator-user';
-        userDiv.innerHTML = 
+        userDiv.innerHTML = `
             <span>${escapeHtml(username)}</span>
             <button onclick="window.removeCoordinator('${escapeHtml(username)}')" class="remove-btn">Remove</button>
-        ;
+        `;
         coordinatorsList.appendChild(userDiv);
     });
 }
@@ -523,7 +521,7 @@ async function removeCoordinator(username) {
     }
 
     await setUserRole(username, 'user');
-    showNotification(Removed ${username} as coordinator);
+    showNotification(`Removed ${username} as coordinator`);
     updateCoordinatorsList();
     updateAuthDisplay();
 }
@@ -538,7 +536,7 @@ async function showAdminPanel() {
         
         if (isAdminUser) {
             // Admin panel content
-            modal.innerHTML = 
+            modal.innerHTML = `
                 <div class="modal-content">
                     <span class="close">&times;</span>
                     <h2>Admin Panel</h2>
@@ -559,10 +557,10 @@ async function showAdminPanel() {
                         <div id="coordinators-list"></div>
                     </div>
                 </div>
-            ;
+            `;
         } else {
             // Coordinator panel content
-            modal.innerHTML = 
+            modal.innerHTML = `
                 <div class="modal-content">
                     <span class="close">&times;</span>
                     <h2>Coordinator Panel</h2>
@@ -575,7 +573,7 @@ async function showAdminPanel() {
                         <div id="banned-users-list"></div>
                     </div>
                 </div>
-            ;
+            `;
         }
         
         modal.style.display = 'block';
@@ -664,7 +662,7 @@ async function handleMessageClick(messageElement) {
 
         try {
             await setUserRole(username, 'coordinator');
-            showNotification(Appointed ${username} as coordinator);
+            showNotification(`Appointed ${username} as coordinator`);
             
             // Update UI elements
             await updateCoordinatorsList();
@@ -676,7 +674,7 @@ async function handleMessageClick(messageElement) {
                 const messageUsername = message.querySelector('.username').textContent.split(':')[0].trim();
                 if (messageUsername === username) {
                     const usernameElement = message.querySelector('.username');
-                    usernameElement.innerHTML = ${escapeHtml(username)}:<span class="role-badge coordinator">Coordinator</span>;
+                    usernameElement.innerHTML = `${escapeHtml(username)}:<span class="role-badge coordinator">Coordinator</span>`;
                 }
             }
             
@@ -792,7 +790,7 @@ async function unbanUserFromPanel(username) {
     }
 
     await unbanUser(username);
-    showNotification(Unbanned ${username});
+    showNotification(`Unbanned ${username}`);
     updateBannedUsersList();
 }
 
@@ -804,10 +802,10 @@ function updateBannedUsersList() {
     bannedUsers.forEach(username => {
         const userDiv = document.createElement('div');
         userDiv.className = 'banned-user';
-        userDiv.innerHTML = 
+        userDiv.innerHTML = `
             <span>${escapeHtml(username)}</span>
             <button onclick="window.unbanUserFromPanel('${escapeHtml(username)}')">Unban</button>
-        ;
+        `;
         bannedUsersList.appendChild(userDiv);
     });
 }
@@ -818,7 +816,7 @@ function updateCharCount() {
     const charCount = document.getElementById('char-count');
     const remaining = MAX_MESSAGE_LENGTH - messageInput.value.length;
     
-    charCount.textContent = ${remaining} characters left;
+    charCount.textContent = `${remaining} characters left`;
     
     // Change color when approaching limit
     if (remaining <= 20) {
