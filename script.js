@@ -1,6 +1,6 @@
 // Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-import { getDatabase, ref, onChildAdded, push, remove, get, set } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+import { getDatabase, ref, onChildAdded, push, remove, get, set, onChildRemoved } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
 // Firebase config
 const firebaseConfig = {
@@ -303,9 +303,19 @@ function loadMessages() {
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.innerHTML = '';
     
+    // Listen for new messages
     onChildAdded(messagesRef, (snapshot) => {
         const messageData = snapshot.val();
         displayMessage(messageData, snapshot.key);
+    });
+
+    // Listen for deleted messages
+    onChildRemoved(messagesRef, (snapshot) => {
+        const messageKey = snapshot.key;
+        const messageElement = document.querySelector(`[data-message-id="${messageKey}"]`);
+        if (messageElement) {
+            messageElement.remove();
+        }
     });
 }
 
@@ -317,6 +327,7 @@ async function displayMessage(messageData, messageKey) {
     const messageElement = document.createElement('div');
     messageElement.classList.add('message');
     messageElement.classList.add(isCurrentUser ? 'user' : 'other');
+    messageElement.setAttribute('data-message-id', messageKey);
     
     let roleBadge = '';
     if (await isAdmin(messageUser)) {
