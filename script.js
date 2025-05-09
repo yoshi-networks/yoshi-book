@@ -525,11 +525,13 @@ function removeCoordinator(username) {
 }
 
 // Update the admin panel HTML section in chat.html to replace the input with a button
-function showAdminPanel() {
+async function showAdminPanel() {
     const modal = document.getElementById('adminModal');
     const currentUser = localStorage.getItem('yoshibook_user');
     
-    isAdmin(currentUser).then(isAdmin => {
+    try {
+        const isAdmin = await isAdmin(currentUser);
+        
         if (isAdmin) {
             // Admin panel content
             modal.innerHTML = `
@@ -573,11 +575,14 @@ function showAdminPanel() {
         }
         
         modal.style.display = 'block';
-        updateBannedUsersList();
+        await updateBannedUsersList();
         if (isAdmin) {
-            updateCoordinatorsList();
+            await updateCoordinatorsList();
         }
-    });
+    } catch (error) {
+        console.error('Error showing admin panel:', error);
+        showNotification('Error loading admin panel');
+    }
 }
 
 // Add new function to start coordinator selection
