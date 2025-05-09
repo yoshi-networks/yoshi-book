@@ -543,7 +543,7 @@ function updateMessagePositions() {
 
 // Add function to update coordinators list
 function updateCoordinatorsList() {
-    const coordinatorsList = document.getElementById('coordinatorsList');
+    const coordinatorsList = document.getElementById('coordinators-List');
     const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
     coordinatorsList.innerHTML = '';
 
