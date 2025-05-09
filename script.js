@@ -109,36 +109,38 @@ function showNotification(message) {
 const ADMIN_USERNAME = 'YoshiNetworks';
 
 // Role management
-function getUserRole(username) {
-    return new Promise((resolve) => {
+async function getUserRole(username) {
+    try {
         const roleRef = ref(database, `roles/${username}`);
-        get(roleRef).then((snapshot) => {
-            if (snapshot.exists()) {
-                const role = snapshot.val();
-                // Update localStorage to keep it in sync
-                const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
-                roles[username] = role;
-                localStorage.setItem('yoshibook_roles', JSON.stringify(roles));
-                resolve(role);
-            } else {
-                // Fallback to localStorage
-                const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
-                resolve(roles[username] || 'user');
-            }
-        }).catch(() => {
-            // If Firebase fails, fallback to localStorage
+        const snapshot = await get(roleRef);
+        if (snapshot.exists()) {
+            const role = snapshot.val();
+            // Update localStorage to keep it in sync
             const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
-            resolve(roles[username] || 'user');
-        });
-    });
+            roles[username] = role;
+            localStorage.setItem('yoshibook_roles', JSON.stringify(roles));
+            return role;
+        }
+    } catch (error) {
+        console.error('Error getting role:', error);
+    }
+    // Fallback to localStorage
+    const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
+    return roles[username] || 'user';
 }
 
-function setUserRole(username, role) {
-    const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
-    roles[username] = role;
-    localStorage.setItem('yoshibook_roles', JSON.stringify(roles));
-    // Also store in Firebase for persistence
-    set(ref(database, `roles/${username}`), role);
+async function setUserRole(username, role) {
+    try {
+        // Update Firebase first
+        await set(ref(database, `roles/${username}`), role);
+        // Then update localStorage
+        const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
+        roles[username] = role;
+        localStorage.setItem('yoshibook_roles', JSON.stringify(roles));
+    } catch (error) {
+        console.error('Error setting role:', error);
+        throw error;
+    }
 }
 
 function isAdmin(username) {
@@ -298,16 +300,14 @@ async function displayMessage(messageData, messageKey) {
         <span class="timestamp">${messageData.timestamp}</span>
     `;
     
-    // Add click handler for ban selection
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
     
-    // Add delete button if user has permission
     if (await canModerate(currentUser) || (isCurrentUser && currentUser !== 'Anonymous')) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
         deleteBtn.innerText = '×';
         deleteBtn.onclick = (e) => {
-            e.stopPropagation(); // Prevent triggering message click
+            e.stopPropagation();
             deleteMessage(messageKey, messageElement);
         };
         messageElement.appendChild(deleteBtn);
@@ -400,8 +400,9 @@ async function updateAuthDisplay() {
             roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
         }
         
+        const canMod = await canModerate(user);
         authButtons.innerHTML = `
-            <div id="adminControls" class="admin-controls" style="display: ${await canModerate(user) ? 'block' : 'none'}">
+            <div id="adminControls" class="admin-controls" style="display: ${canMod ? 'block' : 'none'}">
                 <button class="admin-btn" onclick="window.showAdminPanel()">${isAdmin(user) ? 'Admin Panel' : 'Coordinator Panel'}</button>
             </div>
             <span class="user-display">Welcome, ${user}${roleBadge}</span>
@@ -565,50 +566,54 @@ async function updateAllMessages() {
     }
 }
 
-// Update handleMessageClick to refresh messages after appointing coordinator
+// Update handleMessageClick to properly handle coordinator appointment
 async function handleMessageClick(messageElement) {
     if (isSelectingForBan) {
         const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
         const currentUser = localStorage.getItem('yoshibook_user');
 
-        // Check if trying to ban a moderator
         if (await canModerate(username)) {
             showNotification('Cannot ban moderators');
             stopBanSelection();
             return;
         }
 
-        // Ban the user
         banUser(username);
-        
-        // Show ban confirmation
         showNotification(`${username} banned!`);
-        
-        // Reset selection state
         stopBanSelection();
     } else if (isSelectingForCoordinator) {
         const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
         const currentUser = localStorage.getItem('yoshibook_user');
 
-        // Check if trying to appoint a moderator
         if (await canModerate(username)) {
             showNotification('User is already a moderator');
             stopCoordinatorSelection();
             return;
         }
 
-        // Appoint as coordinator
-        setUserRole(username, 'coordinator');
-        // Store in Firebase
-        set(ref(database, `roles/${username}`), 'coordinator')
-            .then(async () => {
-                showNotification(`Appointed ${username} as coordinator`);
-                updateCoordinatorsList();
-                updateAuthDisplay();
-                await updateAllMessages(); // Update all messages to show new coordinator badge
-                stopCoordinatorSelection();
-            })
-            .catch(handleFirebaseError);
+        try {
+            await setUserRole(username, 'coordinator');
+            showNotification(`Appointed ${username} as coordinator`);
+            
+            // Update UI elements
+            await updateCoordinatorsList();
+            await updateAuthDisplay();
+            
+            // Update all messages to show new coordinator badge
+            const messages = document.querySelectorAll('.message');
+            for (const message of messages) {
+                const messageUsername = message.querySelector('.username').textContent.split(':')[0].trim();
+                if (messageUsername === username) {
+                    const usernameElement = message.querySelector('.username');
+                    usernameElement.innerHTML = `${escapeHtml(username)}:<span class="role-badge coordinator">Coordinator</span>`;
+                }
+            }
+            
+            stopCoordinatorSelection();
+        } catch (error) {
+            showNotification('Error appointing coordinator');
+            console.error('Error:', error);
+        }
     }
 }
 
