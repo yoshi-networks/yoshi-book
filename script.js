@@ -548,7 +548,24 @@ function startCoordinatorSelection() {
     });
 }
 
-// Update handleMessageClick to handle coordinator selection
+// Add function to update all messages
+async function updateAllMessages() {
+    const messages = document.querySelectorAll('.message');
+    for (const message of messages) {
+        const username = message.querySelector('.username').textContent.split(':')[0].trim();
+        let roleBadge = '';
+        if (isAdmin(username)) {
+            roleBadge = '<span class="role-badge admin">Admin</span>';
+        } else if (await isCoordinator(username)) {
+            roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
+        }
+        
+        const usernameElement = message.querySelector('.username');
+        usernameElement.innerHTML = `${escapeHtml(username)}:${roleBadge}`;
+    }
+}
+
+// Update handleMessageClick to refresh messages after appointing coordinator
 async function handleMessageClick(messageElement) {
     if (isSelectingForBan) {
         const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
@@ -584,10 +601,11 @@ async function handleMessageClick(messageElement) {
         setUserRole(username, 'coordinator');
         // Store in Firebase
         set(ref(database, `roles/${username}`), 'coordinator')
-            .then(() => {
+            .then(async () => {
                 showNotification(`Appointed ${username} as coordinator`);
                 updateCoordinatorsList();
                 updateAuthDisplay();
+                await updateAllMessages(); // Update all messages to show new coordinator badge
                 stopCoordinatorSelection();
             })
             .catch(handleFirebaseError);
@@ -626,7 +644,8 @@ const exportedFunctions = {
     canModerate,
     updateBannedUsersList,
     updateCoordinatorsList,
-    removeCoordinator
+    removeCoordinator,
+    updateAllMessages
 };
 
 // Export all functions to window
@@ -641,6 +660,7 @@ window.banUser = banUser;
 window.isBanned = isBanned;
 window.canModerate = canModerate;
 window.showAdminPanel = showAdminPanel;
+window.updateAllMessages = updateAllMessages;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
