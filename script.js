@@ -23,8 +23,7 @@ let messagesLoaded = false;
 // Update the bad words list and add enhanced filtering
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'nigga', 'kai'
-
+    'damn', 'hell ', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai', 'nigga'
 ];
 
 // Add spam prevention variables
@@ -62,7 +61,7 @@ function isSpamming() {
     // Check if user has sent too many messages
     if (messageHistory.length >= SPAM_LIMIT) {
         const timeLeft = SPAM_WINDOW - (now - messageHistory[0]);
-        showNotification(`Please wait ${Math.ceil(timeLeft / 1000)} seconds before sending more messages`);
+        showNotification(Please wait ${Math.ceil(timeLeft / 1000)} seconds before sending more messages);
         return true;
     }
     
@@ -75,7 +74,7 @@ function isSpamming() {
 function setCookie(name, value, days) {
     const expires = new Date();
     expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
-    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+    document.cookie = ${name}=${value};expires=${expires.toUTCString()};path=/;
 }
 
 function getCookie(name) {
@@ -112,7 +111,7 @@ const ADMIN_USERNAME = 'YoshiNetworks';
 // Role management
 async function getUserRole(username) {
     try {
-        const roleRef = ref(database, `roles/${username}`);
+        const roleRef = ref(database, roles/${username});
         const snapshot = await get(roleRef);
         if (snapshot.exists()) {
             const role = snapshot.val();
@@ -133,7 +132,7 @@ async function getUserRole(username) {
 async function setUserRole(username, role) {
     try {
         // Update Firebase first
-        await set(ref(database, `roles/${username}`), role);
+        await set(ref(database, roles/${username}), role);
         // Then update localStorage
         const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
         roles[username] = role;
@@ -162,7 +161,7 @@ async function canModerate(username) {
 // Ban system
 async function isBanned(username) {
     try {
-        const bannedRef = ref(database, `banned/${username}`);
+        const bannedRef = ref(database, banned/${username});
         const snapshot = await get(bannedRef);
         if (snapshot.exists()) {
             return true;
@@ -179,7 +178,7 @@ async function isBanned(username) {
 async function banUser(username) {
     try {
         // Store in Firebase
-        await set(ref(database, `banned/${username}`), true);
+        await set(ref(database, banned/${username}), true);
         
         // Update localStorage
         const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
@@ -206,7 +205,7 @@ async function banUser(username) {
 async function unbanUser(username) {
     try {
         // Remove from Firebase
-        await remove(ref(database, `banned/${username}`));
+        await remove(ref(database, banned/${username}));
         
         // Update localStorage
         const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
@@ -248,7 +247,7 @@ async function sendMessage() {
 
     // Check message length
     if (messageText.length > MAX_MESSAGE_LENGTH) {
-        showNotification(`Message too long! Maximum ${MAX_MESSAGE_LENGTH} characters allowed`);
+        showNotification(Message too long! Maximum ${MAX_MESSAGE_LENGTH} characters allowed);
         return;
     }
 
@@ -290,7 +289,7 @@ async function deleteMessage(messageId, messageAuthor) {
         if (isUserAdmin || 
             (isCoord && !isMessageAuthorCoord && !isMessageAuthorAdmin) || 
             currentUser === messageAuthor) {
-            await remove(ref(database, `messages/${messageId}`));
+            await remove(ref(database, messages/${messageId}));
         } else {
             showNotification('You cannot delete this message');
         }
@@ -318,69 +317,10 @@ async function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
     const messageUser = messageData.displayName;
-
-    // determine roles
-    const isAdminUser    = await isAdmin(currentUser);
-    const isCoordUser    = await isCoordinator(currentUser);
-    const authorIsAdmin  = await isAdmin(messageUser);
-    const authorIsCoord  = await isCoordinator(messageUser);
-
-    // build role badge
-    let roleBadge = '';
-    if (authorIsAdmin)      roleBadge = '<span class="role-badge admin">Admin</span>';
-    else if (authorIsCoord) roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
-
-    // create message element
+    
     const messageElement = document.createElement('div');
-    messageElement.classList.add('message', isCurrentUser ? 'user' : 'other');
-    messageElement.innerHTML = `
-        <span class="username">${escapeHtml(messageUser)}${roleBadge}</span>
-        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-        <span class="timestamp">${messageData.timestamp}</span>
-    `;
-
-    // click handler for selection modes
-    messageElement.addEventListener('click', () => handleMessageClick(messageElement));
-
-    // determine permissions
-    const canDelete = isCurrentUser
-                   || isAdminUser
-                   || (isCoordUser && !authorIsAdmin && !authorIsCoord);
-    const canBan    = (isAdminUser || isCoordUser)
-                   && !authorIsAdmin
-                   && !authorIsCoord
-                   && messageUser !== currentUser;
-
-    // add Delete button if allowed
-    if (canDelete) {
-        const delBtn = document.createElement('button');
-        delBtn.classList.add('delete-btn');
-        delBtn.innerText = '×';
-        delBtn.onclick = e => {
-            e.stopPropagation();
-            deleteMessage(messageKey, messageUser);
-        };
-        messageElement.appendChild(delBtn);
-    }
-
-    // add Ban button if allowed
-    if (canBan) {
-        const banBtn = document.createElement('button');
-        banBtn.classList.add('ban-btn');
-        banBtn.innerText = 'Ban';
-        banBtn.onclick = e => {
-            e.stopPropagation();
-            banUser(messageUser);
-        };
-        messageElement.appendChild(banBtn);
-    }
-
-    // append to chat and scroll
-    const chatMessages = document.getElementById('chat-messages');
-    chatMessages.appendChild(messageElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
+    messageElement.classList.add('message');
+    messageElement.classList.add(isCurrentUser ? 'user' : 'other');
     
     let roleBadge = '';
     if (await isAdmin(messageUser)) {
@@ -389,11 +329,11 @@ async function displayMessage(messageData, messageKey) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
     }
     
-    messageElement.innerHTML = `
+    messageElement.innerHTML = 
         <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
         <div class="message-text">${escapeHtml(messageData.messageText)}</div>
         <span class="timestamp">${messageData.timestamp}</span>
-    `;
+    ;
     
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
     
@@ -427,7 +367,7 @@ function handleLogin(event) {
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
 
-    const userRef = ref(database, `usedDisplayNames/${username}`);
+    const userRef = ref(database, usedDisplayNames/${username});
     get(userRef).then((snapshot) => {
         if (snapshot.exists() && snapshot.val() === password) {
             setCookie('yoshibook_user', username, 7); // Store for 7 days
@@ -464,7 +404,7 @@ function handleSignup(event) {
             return;
         }
 
-        set(ref(database, `usedDisplayNames/${username}`), password)
+        set(ref(database, usedDisplayNames/${username}), password)
             .then(() => {
                 localStorage.setItem('yoshibook_user', username);
                 document.getElementById('signupModal').style.display = 'none';
@@ -496,18 +436,18 @@ async function updateAuthDisplay() {
         }
         
         const canMod = await canModerate(user);
-        authButtons.innerHTML = `
+        authButtons.innerHTML = 
             <div id="adminControls" class="admin-controls" style="display: ${canMod ? 'block' : 'none'}">
                 <button class="admin-btn" onclick="window.showAdminPanel()">${await isAdmin(user) ? 'Admin Panel' : 'Coordinator Panel'}</button>
             </div>
             <span class="user-display">Welcome, ${user}${roleBadge}</span>
             <button class="auth-btn login-btn" onclick="window.logout()">Logout</button>
-        `;
+        ;
     } else {
-        authButtons.innerHTML = `
+        authButtons.innerHTML = 
             <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
             <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
-        `;
+        ;
     }
     loadMessages();
 }
@@ -547,7 +487,7 @@ function updateMessagePositions() {
 
 // Add function to update coordinators list
 function updateCoordinatorsList() {
-    const coordinatorsList = document.getElementById('coordinators-List');
+    const coordinatorsList = document.getElementById('coordinatorsList');
     const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
     coordinatorsList.innerHTML = '';
 
@@ -564,10 +504,10 @@ function updateCoordinatorsList() {
     coordinators.forEach(username => {
         const userDiv = document.createElement('div');
         userDiv.className = 'coordinator-user';
-        userDiv.innerHTML = `
+        userDiv.innerHTML = 
             <span>${escapeHtml(username)}</span>
             <button onclick="window.removeCoordinator('${escapeHtml(username)}')" class="remove-btn">Remove</button>
-        `;
+        ;
         coordinatorsList.appendChild(userDiv);
     });
 }
@@ -581,7 +521,7 @@ async function removeCoordinator(username) {
     }
 
     await setUserRole(username, 'user');
-    showNotification(`Removed ${username} as coordinator`);
+    showNotification(Removed ${username} as coordinator);
     updateCoordinatorsList();
     updateAuthDisplay();
 }
@@ -596,7 +536,7 @@ async function showAdminPanel() {
         
         if (isAdminUser) {
             // Admin panel content
-            modal.innerHTML = `
+            modal.innerHTML = 
                 <div class="modal-content">
                     <span class="close">&times;</span>
                     <h2>Admin Panel</h2>
@@ -617,10 +557,10 @@ async function showAdminPanel() {
                         <div id="coordinators-list"></div>
                     </div>
                 </div>
-            `;
+            ;
         } else {
             // Coordinator panel content
-            modal.innerHTML = `
+            modal.innerHTML = 
                 <div class="modal-content">
                     <span class="close">&times;</span>
                     <h2>Coordinator Panel</h2>
@@ -633,7 +573,7 @@ async function showAdminPanel() {
                         <div id="banned-users-list"></div>
                     </div>
                 </div>
-            `;
+            ;
         }
         
         modal.style.display = 'block';
@@ -691,7 +631,7 @@ async function updateAllMessages() {
         }
         
         const usernameElement = message.querySelector('.username');
-        usernameElement.innerHTML = `${escapeHtml(username)}:${roleBadge}`;
+        usernameElement.innerHTML = ${escapeHtml(username)}:${roleBadge};
     }
 }
 
@@ -708,7 +648,7 @@ async function handleMessageClick(messageElement) {
         }
 
         await banUser(username);
-        showNotification(`${username} banned!`);
+        showNotification(${username} banned!);
         stopBanSelection();
     } else if (isSelectingForCoordinator) {
         const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
@@ -722,7 +662,7 @@ async function handleMessageClick(messageElement) {
 
         try {
             await setUserRole(username, 'coordinator');
-            showNotification(`Appointed ${username} as coordinator`);
+            showNotification(Appointed ${username} as coordinator);
             
             // Update UI elements
             await updateCoordinatorsList();
@@ -734,7 +674,7 @@ async function handleMessageClick(messageElement) {
                 const messageUsername = message.querySelector('.username').textContent.split(':')[0].trim();
                 if (messageUsername === username) {
                     const usernameElement = message.querySelector('.username');
-                    usernameElement.innerHTML = `${escapeHtml(username)}:<span class="role-badge coordinator">Coordinator</span>`;
+                    usernameElement.innerHTML = ${escapeHtml(username)}:<span class="role-badge coordinator">Coordinator</span>;
                 }
             }
             
@@ -835,7 +775,7 @@ async function banUserFromPanel() {
     }
 
     await banUser(username);
-    showNotification(`Banned ${username}`);
+    showNotification(Banned ${username});
     document.getElementById('banUsername').value = '';
     updateBannedUsersList();
 }
@@ -850,7 +790,7 @@ async function unbanUserFromPanel(username) {
     }
 
     await unbanUser(username);
-    showNotification(`Unbanned ${username}`);
+    showNotification(Unbanned ${username});
     updateBannedUsersList();
 }
 
@@ -862,10 +802,10 @@ function updateBannedUsersList() {
     bannedUsers.forEach(username => {
         const userDiv = document.createElement('div');
         userDiv.className = 'banned-user';
-        userDiv.innerHTML = `
+        userDiv.innerHTML = 
             <span>${escapeHtml(username)}</span>
             <button onclick="window.unbanUserFromPanel('${escapeHtml(username)}')">Unban</button>
-        `;
+        ;
         bannedUsersList.appendChild(userDiv);
     });
 }
@@ -876,7 +816,7 @@ function updateCharCount() {
     const charCount = document.getElementById('char-count');
     const remaining = MAX_MESSAGE_LENGTH - messageInput.value.length;
     
-    charCount.textContent = `${remaining} characters left`;
+    charCount.textContent = ${remaining} characters left;
     
     // Change color when approaching limit
     if (remaining <= 20) {
