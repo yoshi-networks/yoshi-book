@@ -107,17 +107,27 @@ const ADMIN_USERNAME = 'YoshiNetworks';
 
 // Role management
 function getUserRole(username) {
-    // First check Firebase
-    const roleRef = ref(database, `roles/${username}`);
-    get(roleRef).then((snapshot) => {
-        if (snapshot.exists()) {
-            return snapshot.val();
-        }
-    }).catch(handleFirebaseError);
-
-    // Fallback to localStorage
-    const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
-    return roles[username] || 'user';
+    return new Promise((resolve) => {
+        const roleRef = ref(database, `roles/${username}`);
+        get(roleRef).then((snapshot) => {
+            if (snapshot.exists()) {
+                const role = snapshot.val();
+                // Update localStorage to keep it in sync
+                const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
+                roles[username] = role;
+                localStorage.setItem('yoshibook_roles', JSON.stringify(roles));
+                resolve(role);
+            } else {
+                // Fallback to localStorage
+                const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
+                resolve(roles[username] || 'user');
+            }
+        }).catch(() => {
+            // If Firebase fails, fallback to localStorage
+            const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
+            resolve(roles[username] || 'user');
+        });
+    });
 }
 
 function setUserRole(username, role) {
@@ -132,12 +142,13 @@ function isAdmin(username) {
     return username === ADMIN_USERNAME || getUserRole(username) === 'admin';
 }
 
-function isCoordinator(username) {
-    return getUserRole(username) === 'coordinator';
+async function isCoordinator(username) {
+    const role = await getUserRole(username);
+    return role === 'coordinator';
 }
 
-function canModerate(username) {
-    return isAdmin(username) || isCoordinator(username);
+async function canModerate(username) {
+    return isAdmin(username) || await isCoordinator(username);
 }
 
 // Ban system
@@ -262,7 +273,7 @@ function loadMessages() {
     });
 }
 
-function displayMessage(messageData, messageKey) {
+async function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
     const messageUser = messageData.displayName;
@@ -274,7 +285,7 @@ function displayMessage(messageData, messageKey) {
     let roleBadge = '';
     if (isAdmin(messageUser)) {
         roleBadge = '<span class="role-badge admin">Admin</span>';
-    } else if (isCoordinator(messageUser)) {
+    } else if (await isCoordinator(messageUser)) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
     }
     
@@ -288,7 +299,7 @@ function displayMessage(messageData, messageKey) {
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
     
     // Add delete button if user has permission
-    if (canModerate(currentUser) || (isCurrentUser && currentUser !== 'Anonymous')) {
+    if (await canModerate(currentUser) || (isCurrentUser && currentUser !== 'Anonymous')) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
         deleteBtn.innerText = '×';
@@ -372,7 +383,7 @@ function logout() {
     updateMessagePositions();
 }
 
-function updateAuthDisplay() {
+async function updateAuthDisplay() {
     const user = localStorage.getItem('yoshibook_user');
     const authButtons = document.querySelector('.auth-buttons');
     
@@ -382,12 +393,12 @@ function updateAuthDisplay() {
         let roleBadge = '';
         if (isAdmin(user)) {
             roleBadge = '<span class="role-badge admin">Admin</span>';
-        } else if (isCoordinator(user)) {
+        } else if (await isCoordinator(user)) {
             roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
         }
         
         authButtons.innerHTML = `
-            <div id="adminControls" class="admin-controls" style="display: ${canModerate(user) ? 'block' : 'none'}">
+            <div id="adminControls" class="admin-controls" style="display: ${await canModerate(user) ? 'block' : 'none'}">
                 <button class="admin-btn" onclick="window.showAdminPanel()">${isAdmin(user) ? 'Admin Panel' : 'Coordinator Panel'}</button>
             </div>
             <span class="user-display">Welcome, ${user}${roleBadge}</span>
@@ -525,15 +536,20 @@ function appointCoordinator() {
             return;
         }
 
-        // Set role in both localStorage and Firebase
-        setUserRole(username, 'coordinator');
-        // Store in Firebase for persistence
-        set(ref(database, `roles/${username}`), 'coordinator');
-        
-        showNotification(`Appointed ${username} as coordinator`);
-        document.getElementById('coordinatorUsername').value = '';
-        updateCoordinatorsList();
-        updateAuthDisplay();
+        // Store in Firebase first
+        set(ref(database, `roles/${username}`), 'coordinator')
+            .then(() => {
+                // Then update localStorage
+                const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
+                roles[username] = 'coordinator';
+                localStorage.setItem('yoshibook_roles', JSON.stringify(roles));
+                
+                showNotification(`Appointed ${username} as coordinator`);
+                document.getElementById('coordinatorUsername').value = '';
+                updateCoordinatorsList();
+                updateAuthDisplay();
+            })
+            .catch(handleFirebaseError);
     }).catch(handleFirebaseError);
 }
 
