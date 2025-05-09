@@ -528,7 +528,7 @@ async function removeCoordinator(username) {
 
 // Update the admin panel HTML section in chat.html to replace the input with a button
 async function showAdminPanel() {
-    const modal = document.getElementById('adminModal');
+    const modal = document.getElementById('adminPanel');
     const currentUser = localStorage.getItem('yoshibook_user');
     
     try {
@@ -596,7 +596,7 @@ async function startCoordinatorSelection() {
     }
 
     // Close admin panel
-    document.getElementById('adminModal').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'none';
     
     // Show coordinator selection notification
     showNotification('Select a message to appoint its author as coordinator');
@@ -826,7 +826,7 @@ async function startBanSelection() {
     }
 
     // Close admin panel
-    document.getElementById('adminModal').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'none';
     
     // Show ban selection notification
     showNotification('Who would you like to ban?');
