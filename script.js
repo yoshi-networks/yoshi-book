@@ -375,66 +375,64 @@ async function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
     const messageUser = messageData.displayName;
-    
+
+    // build container
     const messageElement = document.createElement('div');
-    messageElement.classList.add('message');
-    messageElement.classList.add(isCurrentUser ? 'user' : 'other');
+    messageElement.classList.add('message', isCurrentUser ? 'user' : 'other');
     messageElement.setAttribute('data-message-id', messageKey);
-    
+
+    // role badge
     let roleBadge = '';
     if (await isAdmin(messageUser)) {
         roleBadge = '<span class="role-badge admin">Admin</span>';
     } else if (await isCoordinator(messageUser)) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
     }
-    
-    // Choose numeric formatting only when we have a number
-    const rawTs = messageData.timestamp;
-    const formattedTime =
-        typeof rawTs === 'number'
-          ? formatTimestamp(rawTs)
-          : rawTs;
 
-    // now render
+    // choose formatted time only for numeric timestamps
+    const rawTs = messageData.timestamp;
+    const formattedTime = typeof rawTs === 'number'
+        ? formatTimestamp(rawTs)
+        : rawTs;
+
+    // restore full HTML (username, text, timestamp)
     messageElement.innerHTML = `
-        <span class="username">${escapeHtml(messageData.displayName)}${roleBadge}</span>
-        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-        <span class="timestamp">${formattedTime}</span>
+      <span class="username">${escapeHtml(messageData.displayName)}${roleBadge}</span>
+      <div class="message-text">${escapeHtml(messageData.messageText)}</div>
+      <span class="timestamp">${formattedTime}</span>
     `;
 
-
-    
+    // clicking still triggers ban/coord selection
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
-    
-    // Add delete button if:
-    // 1. User is admin or coordinator (can delete anything)
-    // 2. User is the message author
+
+    // delete button logic
     const isUserAdmin = await isAdmin(currentUser);
     const isUserCoord = await isCoordinator(currentUser);
-    
     if (isUserAdmin || isUserCoord || (isCurrentUser && currentUser !== 'Anonymous')) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
         deleteBtn.innerText = '×';
-        deleteBtn.onclick = (e) => {
+        deleteBtn.onclick = e => {
             e.stopPropagation();
             deleteMessage(messageKey, messageUser);
         };
         messageElement.appendChild(deleteBtn);
     }
-    
+
+    // append to DOM
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    // Update the timestamp every minute
-    setInterval(() => {
-        const timestampElement = messageElement.querySelector('.timestamp');
-        if (timestampElement) {
-            timestampElement.textContent = formatTimestamp(messageData.timestamp);
-        }
-    }, 60000); // Update every minute
+    // update the timestamp every minute if it is numeric
+    if (typeof rawTs === 'number') {
+      setInterval(() => {
+        const tsEl = messageElement.querySelector('.timestamp');
+        if (tsEl) tsEl.textContent = formatTimestamp(rawTs);
+      }, 60000);
+    }
 }
+
 
 // Auth functions
 function showLoginModal() {
