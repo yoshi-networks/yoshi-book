@@ -255,7 +255,7 @@ function formatTimestamp(timestamp) {
     }
 }
 
-// Update the sendMessage function to ensure proper data structure
+// Update the sendMessage function
 async function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
@@ -285,16 +285,18 @@ async function sendMessage() {
     const filteredMessage = filterBadWords(messageText);
     const timestamp = Date.now();
     
-    // Get role synchronously from localStorage
+    // Store admin status directly in message data
+    const isUserAdmin = user === ADMIN_USERNAME;
     const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
-    const role = roles[user] || 'user';
+    const role = isUserAdmin ? 'admin' : (roles[user] || 'user');
     
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
         timestamp: timestamp,
         isUser: user !== 'Anonymous',
-        role: role
+        role: role,
+        isAdmin: isUserAdmin // Add this flag
     };
     
     try {
@@ -347,8 +349,8 @@ function loadMessages() {
         messageElement.classList.add(messageData.displayName === localStorage.getItem('yoshibook_user') ? 'user' : 'other');
         messageElement.setAttribute('data-message-id', snapshot.key);
         
-        // Simple role check - no async
-        const roleBadge = messageData.displayName === 'YoshiNetworks' ? 
+        // Use the stored role information
+        const roleBadge = messageData.isAdmin ? 
             '<span class="role-badge admin">Admin</span>' : 
             (messageData.role === 'coordinator' ? '<span class="role-badge coordinator">Coordinator</span>' : '');
         
@@ -358,8 +360,9 @@ function loadMessages() {
             <span class="timestamp">${formatTimestamp(messageData.timestamp)}</span>
         `;
         
-        // Add delete button if user is message author
-        if (messageData.displayName === localStorage.getItem('yoshibook_user')) {
+        // Add delete button if user is message author or admin
+        const currentUser = localStorage.getItem('yoshibook_user');
+        if (messageData.displayName === currentUser || currentUser === ADMIN_USERNAME) {
             const deleteBtn = document.createElement('button');
             deleteBtn.classList.add('delete-btn');
             deleteBtn.innerText = '×';
