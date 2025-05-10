@@ -397,9 +397,11 @@ async function displayMessage(messageData, messageKey) {
 
     // now render
     messageElement.innerHTML = `
-      …
-      <span class="timestamp">${formattedTime}</span>
+        <span class="username">${escapeHtml(messageData.displayName)}${roleBadge}</span>
+        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
+        <span class="timestamp">${formattedTime}</span>
     `;
+
 
     
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
