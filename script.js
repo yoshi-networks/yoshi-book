@@ -290,12 +290,15 @@ async function sendMessage() {
         messageText: filteredMessage,
         timestamp: timestamp,
         isUser: user !== 'Anonymous',
-        createdAt: timestamp
+        createdAt: timestamp,
+        role: await getUserRole(user) // Store the role with the message
     };
     
     try {
         const messagesRef = ref(database, 'messages');
-        await push(messagesRef, messageData);
+        const newMessageRef = await push(messagesRef, messageData);
+        // Ensure the message is properly saved before clearing input
+        await get(newMessageRef);
         messageInput.value = '';
     } catch (error) {
         console.error('Error sending message:', error);
@@ -341,10 +344,20 @@ function loadMessages() {
             console.error('Invalid message data:', messageData);
             return;
         }
+
+        // Store the message data in a way that persists across reloads
+        const messageKey = snapshot.key;
+        const messageRef = ref(database, `messages/${messageKey}`);
+        
         try {
-            await displayMessage(messageData, snapshot.key);
+            // Ensure the message data is complete before displaying
+            const messageSnapshot = await get(messageRef);
+            if (messageSnapshot.exists()) {
+                const completeMessageData = messageSnapshot.val();
+                await displayMessage(completeMessageData, messageKey);
+            }
         } catch (error) {
-            console.error('Error displaying message:', error);
+            console.error('Error loading message:', error);
         }
     });
 
