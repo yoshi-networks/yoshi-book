@@ -255,7 +255,7 @@ function formatTimestamp(timestamp) {
     }
 }
 
-// Update the sendMessage function
+// Update the sendMessage function to ensure proper data structure
 async function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
@@ -266,8 +266,8 @@ async function sendMessage() {
     // Check if user is banned
     if (await isBanned(user)) {
         showNotification('You have been banned!');
-        messageInput.value = '';
-        messageInput.disabled = true;
+        messageInput.value = ''; // Clear the input
+        messageInput.disabled = true; // Disable the input
         return;
     }
 
@@ -285,16 +285,12 @@ async function sendMessage() {
     const filteredMessage = filterBadWords(messageText);
     const timestamp = Date.now();
     
-    // Store admin status directly in message data
-    const isUserAdmin = user === ADMIN_USERNAME;
-    const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
-    const role = isUserAdmin ? 'admin' : (roles[user] || 'user');
-    
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
         timestamp: timestamp,
-        isUser: user !== 'Anonymous'
+        isUser: user !== 'Anonymous',
+        createdAt: timestamp
     };
     
     try {
@@ -338,50 +334,87 @@ function loadMessages() {
     chatMessages.innerHTML = '';
     
     // Listen for new messages
-    onChildAdded(messagesRef, (snapshot) => {
+    onChildAdded(messagesRef, async (snapshot) => {
         const messageData = snapshot.val();
-        if (!messageData) return;
-        
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('message');
-        messageElement.classList.add(messageData.displayName === localStorage.getItem('yoshibook_user') ? 'user' : 'other');
-        messageElement.setAttribute('data-message-id', snapshot.key);
-        
-        // Use the stored role information
-        const roleBadge = messageData.isAdmin ? 
-            '<span class="role-badge admin">Admin</span>' : 
-            (messageData.role === 'coordinator' ? '<span class="role-badge coordinator">Coordinator</span>' : '');
-        
-        messageElement.innerHTML = `
-            <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
-            <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-            <span class="timestamp">${formatTimestamp(messageData.timestamp)}</span>
-        `;
-        
-        // Add delete button if user is message author or admin
-        const currentUser = localStorage.getItem('yoshibook_user');
-        if (messageData.displayName === currentUser || currentUser === ADMIN_USERNAME) {
-            const deleteBtn = document.createElement('button');
-            deleteBtn.classList.add('delete-btn');
-            deleteBtn.innerText = '×';
-            deleteBtn.onclick = (e) => {
-                e.stopPropagation();
-                deleteMessage(snapshot.key, messageData.displayName);
-            };
-            messageElement.appendChild(deleteBtn);
+        // Ensure we have all required data
+        if (!messageData || !messageData.displayName || !messageData.messageText) {
+            console.error('Invalid message data:', messageData);
+            return;
         }
-        
-        chatMessages.appendChild(messageElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        try {
+            await displayMessage(messageData, snapshot.key);
+        } catch (error) {
+            console.error('Error displaying message:', error);
+        }
     });
 
     // Listen for deleted messages
     onChildRemoved(messagesRef, (snapshot) => {
-        const messageElement = document.querySelector(`[data-message-id="${snapshot.key}"]`);
+        const messageKey = snapshot.key;
+        const messageElement = document.querySelector(`[data-message-id="${messageKey}"]`);
         if (messageElement) {
             messageElement.remove();
         }
     });
+}
+
+// Update the displayMessage function to show formatted timestamps
+async function displayMessage(messageData, messageKey) {
+    const currentUser = localStorage.getItem('yoshibook_user');
+    const isCurrentUser = messageData.displayName === currentUser;
+    const messageUser = messageData.displayName;
+    
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message');
+    messageElement.classList.add(isCurrentUser ? 'user' : 'other');
+    messageElement.setAttribute('data-message-id', messageKey);
+    
+    let roleBadge = '';
+    if (await isAdmin(messageUser)) {
+        roleBadge = '<span class="role-badge admin">Admin</span>';
+    } else if (await isCoordinator(messageUser)) {
+        roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
+    }
+    
+    // Format the timestamp
+    const formattedTime = formatTimestamp(messageData.timestamp);
+    
+    messageElement.innerHTML = `
+        <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
+        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
+        <span class="timestamp">${formattedTime}</span>
+    `;
+    
+    messageElement.addEventListener('click', () => handleMessageClick(messageElement));
+    
+    // Add delete button if:
+    // 1. User is admin or coordinator (can delete anything)
+    // 2. User is the message author
+    const isUserAdmin = await isAdmin(currentUser);
+    const isUserCoord = await isCoordinator(currentUser);
+    
+    if (isUserAdmin || isUserCoord || (isCurrentUser && currentUser !== 'Anonymous')) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.classList.add('delete-btn');
+        deleteBtn.innerText = '×';
+        deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            deleteMessage(messageKey, messageUser);
+        };
+        messageElement.appendChild(deleteBtn);
+    }
+    
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // Update the timestamp every minute
+    setInterval(() => {
+        const timestampElement = messageElement.querySelector('.timestamp');
+        if (timestampElement) {
+            timestampElement.textContent = formatTimestamp(messageData.timestamp);
+        }
+    }, 60000); // Update every minute
 }
 
 // Auth functions
