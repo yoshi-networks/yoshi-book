@@ -283,14 +283,15 @@ async function sendMessage() {
     }
 
     const filteredMessage = filterBadWords(messageText);
-    const timestamp = Date.now();
-    
+    const timeString = new Date().toLocaleTimeString();  // e.g. "10:23:45 AM"
+    const now = Date.now();
+
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
-        timestamp: timestamp,
+        timestamp: timeString,          // must remain a string for DB rules
         isUser: user !== 'Anonymous',
-        createdAt: timestamp,
+        createdAt: now                  // numeric for “x minutes ago”
     };
     
     try {
@@ -389,11 +390,11 @@ async function displayMessage(messageData, messageKey) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
     }
 
-    // choose formatted time only for numeric timestamps
-    const rawTs = messageData.timestamp;
-    const formattedTime = typeof rawTs === 'number'
-        ? formatTimestamp(rawTs)
-        : rawTs;
+    // Show “x minutes ago” from createdAt, but fall back to the original timestamp string
+    const createdNum = messageData.createdAt;
+    const formattedTime = (typeof createdNum === 'number')
+                        ? formatTimestamp(createdNum)
+                        : messageData.timestamp;
 
     // restore full HTML (username, text, timestamp)
     messageElement.innerHTML = `
