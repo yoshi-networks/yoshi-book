@@ -2,6 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
 import { getDatabase, ref, onChildAdded, push, remove, get, set, onChildRemoved } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
+
 // Firebase config
 const firebaseConfig = {
     apiKey: "AIzaSyCdnPP1xNfe13SuDNuaP2rOL6_WcbPN8cI",
@@ -14,11 +15,14 @@ const firebaseConfig = {
     databaseURL: "https://yoshibook-ba4ca-default-rtdb.firebaseio.com/"
 };
 
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
+
 let messagesLoaded = false;
+
 
 // Update the bad words list and add enhanced filtering
 const BAD_WORDS = [
@@ -26,19 +30,24 @@ const BAD_WORDS = [
     'damn', 'hell ', 'piss', 'whore', 'slut', 'retard', 'nigger', 'nigga', 'faggot', 'kai'
 ];
 
+
 // Add spam prevention variables
 const SPAM_LIMIT = 1; // Number of messages
 const SPAM_WINDOW = 2000; // Time window in milliseconds (3 seconds)
 const MAX_MESSAGE_LENGTH = 200; // Character limit
 
+
 // Add message tracking for spam prevention
 let messageHistory = [];
+
 
 // Add ban selection state
 let isSelectingForBan = false;
 
+
 // Add coordinator selection state
 let isSelectingForCoordinator = false;
+
 
 // Enhanced bad word filter
 function filterBadWords(text) {
@@ -52,23 +61,25 @@ function filterBadWords(text) {
     return filteredText;
 }
 
+
 // Add spam check function
 function isSpamming() {
     const now = Date.now();
     // Remove messages older than the spam window
     messageHistory = messageHistory.filter(time => now - time < SPAM_WINDOW);
-    
+   
     // Check if user has sent too many messages
     if (messageHistory.length >= SPAM_LIMIT) {
         const timeLeft = SPAM_WINDOW - (now - messageHistory[0]);
         showNotification(`Please wait ${Math.ceil(timeLeft / 1000)} seconds before sending more messages`);
         return true;
     }
-    
+   
     // Add current message to history
     messageHistory.push(now);
     return false;
 }
+
 
 // Add this cookie utility functions at the top after Firebase initialization
 function setCookie(name, value, days) {
@@ -76,6 +87,7 @@ function setCookie(name, value, days) {
     expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
     document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
 }
+
 
 function getCookie(name) {
     const nameEQ = name + "=";
@@ -88,25 +100,28 @@ function getCookie(name) {
     return null;
 }
 
+
 // Add notification function
 function showNotification(message) {
     const notification = document.createElement('div');
     notification.className = 'notification';
     notification.textContent = message;
     document.body.appendChild(notification);
-    
+   
     setTimeout(() => {
         notification.classList.add('show');
     }, 100);
-    
+   
     setTimeout(() => {
         notification.classList.remove('show');
         setTimeout(() => notification.remove(), 300);
     }, 2000);
 }
 
+
 // Add after Firebase initialization
 const ADMIN_USERNAME = 'YoshiNetworks';
+
 
 // Role management
 async function getUserRole(username) {
@@ -129,6 +144,7 @@ async function getUserRole(username) {
     return roles[username] || 'user';
 }
 
+
 async function setUserRole(username, role) {
     try {
         // Update Firebase first
@@ -143,20 +159,24 @@ async function setUserRole(username, role) {
     }
 }
 
+
 async function isAdmin(username) {
     if (username === ADMIN_USERNAME) return true;
     const role = await getUserRole(username);
     return role === 'admin';
 }
 
+
 async function isCoordinator(username) {
     const role = await getUserRole(username);
     return role === 'coordinator';
 }
 
+
 async function canModerate(username) {
     return await isAdmin(username) || await isCoordinator(username);
 }
+
 
 // Ban system
 async function isBanned(username) {
@@ -169,24 +189,25 @@ async function isBanned(username) {
     } catch (error) {
         console.error('Error checking ban status:', error);
     }
-    
+   
     // Fallback to localStorage
     const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
     return bannedUsers.includes(username);
 }
 
+
 async function banUser(username) {
     try {
         // Store in Firebase
         await set(ref(database, `banned/${username}`), true);
-        
+       
         // Update localStorage
         const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
         if (!bannedUsers.includes(username)) {
             bannedUsers.push(username);
             localStorage.setItem('yoshibook_banned', JSON.stringify(bannedUsers));
         }
-        
+       
         // If the banned user is currently logged in, disable their input
         const currentUser = localStorage.getItem('yoshibook_user');
         if (currentUser === username) {
@@ -202,11 +223,12 @@ async function banUser(username) {
     }
 }
 
+
 async function unbanUser(username) {
     try {
         // Remove from Firebase
         await remove(ref(database, `banned/${username}`));
-        
+       
         // Update localStorage
         const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
         const index = bannedUsers.indexOf(username);
@@ -214,7 +236,7 @@ async function unbanUser(username) {
             bannedUsers.splice(index, 1);
             localStorage.setItem('yoshibook_banned', JSON.stringify(bannedUsers));
         }
-        
+       
         // If the unbanned user is currently logged in, enable their input
         const currentUser = localStorage.getItem('yoshibook_user');
         if (currentUser === username) {
@@ -229,6 +251,7 @@ async function unbanUser(username) {
     }
 }
 
+
 // Add this helper function to format timestamps
 function formatTimestamp(timestamp) {
     const now = Date.now();
@@ -239,6 +262,7 @@ function formatTimestamp(timestamp) {
     const diffInDays = Math.floor(diffInHours / 24);
     const diffInWeeks = Math.floor(diffInDays / 7);
     const diffInYears = Math.floor(diffInDays / 365);
+
 
     if (diffInSeconds < 60) {
         return 'just now';
@@ -255,13 +279,16 @@ function formatTimestamp(timestamp) {
     }
 }
 
+
 // Update the sendMessage function to ensure proper data structure
 async function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
     const user = localStorage.getItem('yoshibook_user') || 'Anonymous';
 
+
     if (messageText === '') return;
+
 
     // Check if user is banned
     if (await isBanned(user)) {
@@ -271,20 +298,23 @@ async function sendMessage() {
         return;
     }
 
+
     // Check message length
     if (messageText.length > MAX_MESSAGE_LENGTH) {
         showNotification(`Message too long! Maximum ${MAX_MESSAGE_LENGTH} characters allowed`);
         return;
     }
 
+
     // Check for spam
     if (isSpamming()) {
         return;
     }
 
+
     const filteredMessage = filterBadWords(messageText);
     const timestamp = Date.now();
-    
+   
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
@@ -292,7 +322,7 @@ async function sendMessage() {
         isUser: user !== 'Anonymous',
         createdAt: timestamp
     };
-    
+   
     try {
         const messagesRef = ref(database, 'messages');
         await push(messagesRef, messageData);
@@ -303,12 +333,13 @@ async function sendMessage() {
     }
 }
 
+
 async function deleteMessage(messageId, messageAuthor) {
     try {
         const currentUser = localStorage.getItem('yoshibook_user');
         const isUserAdmin = await isAdmin(currentUser);
         const isUserCoord = await isCoordinator(currentUser);
-        
+       
         // Allow deletion if:
         // 1. User is admin or coordinator (can delete anything)
         // 2. User is the message author
@@ -325,14 +356,16 @@ async function deleteMessage(messageId, messageAuthor) {
     }
 }
 
+
 function loadMessages() {
     if (messagesLoaded) return;
     messagesLoaded = true;
 
+
     const messagesRef = ref(database, 'messages');
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.innerHTML = '';
-    
+   
     // Listen for new messages
     onChildAdded(messagesRef, async (snapshot) => {
         const messageData = snapshot.val();
@@ -348,6 +381,7 @@ function loadMessages() {
         }
     });
 
+
     // Listen for deleted messages
     onChildRemoved(messagesRef, (snapshot) => {
         const messageKey = snapshot.key;
@@ -358,41 +392,42 @@ function loadMessages() {
     });
 }
 
+
 // Update the displayMessage function to show formatted timestamps
 async function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
     const messageUser = messageData.displayName;
-    
+   
     const messageElement = document.createElement('div');
     messageElement.classList.add('message');
     messageElement.classList.add(isCurrentUser ? 'user' : 'other');
     messageElement.setAttribute('data-message-id', messageKey);
-    
+   
     let roleBadge = '';
     if (await isAdmin(messageUser)) {
         roleBadge = '<span class="role-badge admin">Admin</span>';
     } else if (await isCoordinator(messageUser)) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
     }
-    
+   
     // Format the timestamp
     const formattedTime = formatTimestamp(messageData.timestamp);
-    
+   
     messageElement.innerHTML = `
         <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
         <div class="message-text">${escapeHtml(messageData.messageText)}</div>
         <span class="timestamp">${formattedTime}</span>
     `;
-    
+   
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
-    
+   
     // Add delete button if:
     // 1. User is admin or coordinator (can delete anything)
     // 2. User is the message author
     const isUserAdmin = await isAdmin(currentUser);
     const isUserCoord = await isCoordinator(currentUser);
-    
+   
     if (isUserAdmin || isUserCoord || (isCurrentUser && currentUser !== 'Anonymous')) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
@@ -403,10 +438,11 @@ async function displayMessage(messageData, messageKey) {
         };
         messageElement.appendChild(deleteBtn);
     }
-    
+   
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+
 
     // Update the timestamp every minute
     setInterval(() => {
@@ -417,19 +453,23 @@ async function displayMessage(messageData, messageKey) {
     }, 60000); // Update every minute
 }
 
+
 // Auth functions
 function showLoginModal() {
     document.getElementById('loginModal').style.display = 'flex';
 }
 
+
 function showSignupModal() {
     document.getElementById('signupModal').style.display = 'flex';
 }
+
 
 function handleLogin(event) {
     event.preventDefault();
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
+
 
     const userRef = ref(database, `usedDisplayNames/${username}`);
     get(userRef).then((snapshot) => {
@@ -445,10 +485,12 @@ function handleLogin(event) {
     }).catch(handleFirebaseError);
 }
 
+
 function handleSignup(event) {
     event.preventDefault();
     const username = document.getElementById('signupUsername').value.trim();
     const password = document.getElementById('signupPassword').value;
+
 
     // Check for spaces and special characters
     if (!/^[a-zA-Z0-9]+$/.test(username)) {
@@ -456,17 +498,19 @@ function handleSignup(event) {
         return;
     }
 
+
     const normalizedUsername = username.toLowerCase(); // Convert to lowercase for comparison
     const userRef = ref(database, 'usedDisplayNames');
-    
+   
     get(userRef).then((snapshot) => {
         const existingUsernames = snapshot.val() || {};
         const existingNormalizedUsernames = Object.keys(existingUsernames).map(name => name.toLowerCase());
-        
+       
         if (existingNormalizedUsernames.includes(normalizedUsername)) {
             alert('Username already taken');
             return;
         }
+
 
         set(ref(database, `usedDisplayNames/${username}`), password)
             .then(() => {
@@ -478,6 +522,7 @@ function handleSignup(event) {
     }).catch(handleFirebaseError);
 }
 
+
 function logout() {
     localStorage.removeItem('yoshibook_user');
     document.cookie = 'yoshibook_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
@@ -485,12 +530,13 @@ function logout() {
     updateMessagePositions();
 }
 
+
 async function updateAuthDisplay() {
     const user = localStorage.getItem('yoshibook_user');
     const authButtons = document.querySelector('.auth-buttons');
-    
+   
     if (!authButtons) return;
-    
+   
     if (user) {
         let roleBadge = '';
         if (await isAdmin(user)) {
@@ -498,7 +544,7 @@ async function updateAuthDisplay() {
         } else if (await isCoordinator(user)) {
             roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
         }
-        
+       
         const canMod = await canModerate(user);
         authButtons.innerHTML = `
             <div id="adminControls" class="admin-controls" style="display: ${canMod ? 'block' : 'none'}">
@@ -516,6 +562,7 @@ async function updateAuthDisplay() {
     loadMessages();
 }
 
+
 // Utility functions
 function handleKeyDown(event) {
     if (event.key === 'Enter') {
@@ -523,10 +570,12 @@ function handleKeyDown(event) {
     }
 }
 
+
 function handleFirebaseError(error) {
     console.error('Firebase error:', error);
     alert('An error occurred. Please try again later.');
 }
+
 
 function escapeHtml(unsafe) {
     return unsafe
@@ -537,11 +586,12 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
+
 // Add function to update message positions
 function updateMessagePositions() {
     const currentUser = localStorage.getItem('yoshibook_user');
     const messages = document.querySelectorAll('.message');
-    
+   
     messages.forEach(message => {
         const username = message.querySelector('.username').textContent.split(':')[0].trim();
         message.classList.remove('user', 'other');
@@ -549,23 +599,27 @@ function updateMessagePositions() {
     });
 }
 
+
 // Add function to update coordinators list
 function updateCoordinatorsList() {
     const coordinatorsList = document.getElementById('coordinators-list');
     if (!coordinatorsList) return;
-    
+   
     const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
     coordinatorsList.innerHTML = '';
+
 
     // Get all coordinators
     const coordinators = Object.entries(roles)
         .filter(([_, role]) => role === 'coordinator')
         .map(([username]) => username);
 
+
     if (coordinators.length === 0) {
         coordinatorsList.innerHTML = '<div class="empty-list">No coordinators appointed</div>';
         return;
     }
+
 
     coordinators.forEach(username => {
         const userDiv = document.createElement('div');
@@ -578,6 +632,7 @@ function updateCoordinatorsList() {
     });
 }
 
+
 // Add function to remove coordinator
 async function removeCoordinator(username) {
     const currentUser = localStorage.getItem('yoshibook_user');
@@ -586,20 +641,22 @@ async function removeCoordinator(username) {
         return;
     }
 
+
     await setUserRole(username, 'user');
     showNotification(`Removed ${username} as coordinator`);
     updateCoordinatorsList();
     updateAuthDisplay();
 }
 
+
 // Update the admin panel HTML section in chat.html to replace the input with a button
 async function showAdminPanel() {
     const modal = document.getElementById('adminPanel');
     const currentUser = localStorage.getItem('yoshibook_user');
-    
+   
     try {
         const isAdminUser = await isAdmin(currentUser);
-        
+       
         if (isAdminUser) {
             // Admin panel content
             modal.innerHTML = `
@@ -641,12 +698,13 @@ async function showAdminPanel() {
                 </div>
             `;
         }
-        
+       
         modal.style.display = 'block';
         await updateBannedUsersList();
         if (isAdminUser) {
             await updateCoordinatorsList();
         }
+
 
         // Add close button functionality
         const closeBtn = modal.querySelector('.close');
@@ -661,6 +719,7 @@ async function showAdminPanel() {
     }
 }
 
+
 // Add new function to start coordinator selection
 async function startCoordinatorSelection() {
     const currentUser = localStorage.getItem('yoshibook_user');
@@ -669,20 +728,22 @@ async function startCoordinatorSelection() {
         return;
     }
 
+
     // Close admin panel
     document.getElementById('adminPanel').style.display = 'none';
-    
+   
     // Show coordinator selection notification
     showNotification('Select a message to appoint its author as coordinator');
-    
+   
     // Enable message selection
     isSelectingForCoordinator = true;
-    
+   
     // Add selectable class to all messages
     document.querySelectorAll('.message').forEach(message => {
         message.classList.add('selectable');
     });
 }
+
 
 // Add function to update all messages
 async function updateAllMessages() {
@@ -695,11 +756,12 @@ async function updateAllMessages() {
         } else if (await isCoordinator(username)) {
             roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
         }
-        
+       
         const usernameElement = message.querySelector('.username');
         usernameElement.innerHTML = `${escapeHtml(username)}:${roleBadge}`;
     }
 }
+
 
 // Update handleMessageClick to properly handle coordinator appointment
 async function handleMessageClick(messageElement) {
@@ -707,11 +769,13 @@ async function handleMessageClick(messageElement) {
         const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
         const currentUser = localStorage.getItem('yoshibook_user');
 
+
         if (await canModerate(username)) {
             showNotification('Cannot ban moderators');
             stopBanSelection();
             return;
         }
+
 
         await banUser(username);
         showNotification(`${username} banned!`);
@@ -720,20 +784,22 @@ async function handleMessageClick(messageElement) {
         const username = messageElement.querySelector('.username').textContent.split(':')[0].trim();
         const currentUser = localStorage.getItem('yoshibook_user');
 
+
         if (await canModerate(username)) {
             showNotification('User is already a moderator');
             stopCoordinatorSelection();
             return;
         }
 
+
         try {
             await setUserRole(username, 'coordinator');
             showNotification(`Appointed ${username} as coordinator`);
-            
+           
             // Update UI elements
             await updateCoordinatorsList();
             await updateAuthDisplay();
-            
+           
             // Update all messages to show new coordinator badge
             const messages = document.querySelectorAll('.message');
             for (const message of messages) {
@@ -743,7 +809,7 @@ async function handleMessageClick(messageElement) {
                     usernameElement.innerHTML = `${escapeHtml(username)}:<span class="role-badge coordinator">Coordinator</span>`;
                 }
             }
-            
+           
             stopCoordinatorSelection();
         } catch (error) {
             showNotification('Error appointing coordinator');
@@ -752,6 +818,7 @@ async function handleMessageClick(messageElement) {
     }
 }
 
+
 // Add function to stop coordinator selection
 function stopCoordinatorSelection() {
     isSelectingForCoordinator = false;
@@ -759,6 +826,7 @@ function stopCoordinatorSelection() {
         message.classList.remove('selectable', 'selecting');
     });
 }
+
 
 // Add to the exported functions
 const exportedFunctions = {
@@ -790,8 +858,10 @@ const exportedFunctions = {
     isCoordinator
 };
 
+
 // Export all functions to window
 Object.assign(window, exportedFunctions);
+
 
 // Also explicitly export these functions
 window.startBanSelection = startBanSelection;
@@ -806,6 +876,7 @@ window.updateAllMessages = updateAllMessages;
 window.isAdmin = isAdmin;
 window.isCoordinator = isCoordinator;
 
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
     const cookieUser = getCookie('yoshibook_user');
@@ -815,7 +886,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await updateAuthDisplay();
     await checkBanStatus();
     loadMessages();
-    
+   
     // Close modals when clicking outside
     window.onclick = function(event) {
         if (event.target.className === 'modal') {
@@ -824,10 +895,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 });
 
+
 // Add these new functions
 async function banUserFromPanel() {
     const username = document.getElementById('banUsername').value.trim();
     if (!username) return;
+
 
     const currentUser = localStorage.getItem('yoshibook_user');
     if (!await canModerate(currentUser)) {
@@ -835,10 +908,12 @@ async function banUserFromPanel() {
         return;
     }
 
+
     if (await canModerate(username)) {
         showNotification('Cannot ban moderators');
         return;
     }
+
 
     await banUser(username);
     showNotification(`Banned ${username}`);
@@ -846,8 +921,10 @@ async function banUserFromPanel() {
     updateBannedUsersList();
 }
 
+
 async function unbanUserFromPanel(username) {
     if (!username) return;
+
 
     const currentUser = localStorage.getItem('yoshibook_user');
     if (!await canModerate(currentUser)) {
@@ -855,15 +932,18 @@ async function unbanUserFromPanel(username) {
         return;
     }
 
+
     await unbanUser(username);
     showNotification(`Unbanned ${username}`);
     updateBannedUsersList();
 }
 
+
 function updateBannedUsersList() {
     const bannedUsers = JSON.parse(localStorage.getItem('yoshibook_banned') || '[]');
     const bannedUsersList = document.getElementById('banned-users-list');
     bannedUsersList.innerHTML = '';
+
 
     bannedUsers.forEach(username => {
         const userDiv = document.createElement('div');
@@ -876,14 +956,15 @@ function updateBannedUsersList() {
     });
 }
 
+
 // Add character counter to chat.html input
 function updateCharCount() {
     const messageInput = document.getElementById('message-input');
     const charCount = document.getElementById('char-count');
     const remaining = MAX_MESSAGE_LENGTH - messageInput.value.length;
-    
+   
     charCount.textContent = `${remaining} characters left`;
-    
+   
     // Change color when approaching limit
     if (remaining <= 20) {
         charCount.style.color = remaining <= 10 ? '#f44336' : '#ff9800';
@@ -892,6 +973,7 @@ function updateCharCount() {
     }
 }
 
+
 async function startBanSelection() {
     const currentUser = localStorage.getItem('yoshibook_user');
     if (!await canModerate(currentUser)) {
@@ -899,20 +981,22 @@ async function startBanSelection() {
         return;
     }
 
+
     // Close admin panel
     document.getElementById('adminPanel').style.display = 'none';
-    
+   
     // Show ban selection notification
     showNotification('Who would you like to ban?');
-    
+   
     // Enable message selection
     isSelectingForBan = true;
-    
+   
     // Add selectable class to all messages
     document.querySelectorAll('.message').forEach(message => {
         message.classList.add('selectable');
     });
 }
+
 
 function stopBanSelection() {
     isSelectingForBan = false;
@@ -920,6 +1004,7 @@ function stopBanSelection() {
         message.classList.remove('selectable', 'selecting');
     });
 }
+
 
 // Add function to check ban status on page load
 async function checkBanStatus() {
@@ -935,3 +1020,6 @@ async function checkBanStatus() {
         }
     }
 }
+
+
+
