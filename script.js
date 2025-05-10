@@ -388,14 +388,19 @@ async function displayMessage(messageData, messageKey) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
     }
     
-    // Format the timestamp
-    const formattedTime = formatTimestamp(messageData.timestamp);
-    
+    // Choose numeric formatting only when we have a number
+    const rawTs = messageData.timestamp;
+    const formattedTime =
+        typeof rawTs === 'number'
+          ? formatTimestamp(rawTs)
+          : rawTs;
+
+    // now render
     messageElement.innerHTML = `
-        <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
-        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-        <span class="timestamp">${formattedTime}</span>
+      …
+      <span class="timestamp">${formattedTime}</span>
     `;
+
     
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
     
