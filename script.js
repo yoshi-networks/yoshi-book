@@ -294,9 +294,7 @@ async function sendMessage() {
         displayName: user,
         messageText: filteredMessage,
         timestamp: timestamp,
-        isUser: user !== 'Anonymous',
-        role: role,
-        isAdmin: isUserAdmin // Add this flag
+        isUser: user !== 'Anonymous'
     };
     
     try {
