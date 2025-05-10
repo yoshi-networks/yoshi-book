@@ -291,7 +291,6 @@ async function sendMessage() {
         timestamp: timestamp,
         isUser: user !== 'Anonymous',
         createdAt: timestamp,
-        role: await getUserRole(user) // Store the role with the message
     };
     
     try {
