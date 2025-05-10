@@ -283,22 +283,19 @@ async function sendMessage() {
     }
 
     const filteredMessage = filterBadWords(messageText);
-    const timeString = new Date().toLocaleTimeString();  // e.g. "10:23:45 AM"
-    const now = Date.now();
-
+    const timestamp = Date.now();
+    
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
-        timestamp: timeString,          // must remain a string for DB rules
+        timestamp: timestamp,
         isUser: user !== 'Anonymous',
-        createdAt: now                  // numeric for “x minutes ago”
+        createdAt: timestamp
     };
     
     try {
         const messagesRef = ref(database, 'messages');
-        const newMessageRef = await push(messagesRef, messageData);
-        // Ensure the message is properly saved before clearing input
-        await get(newMessageRef);
+        await push(messagesRef, messageData);
         messageInput.value = '';
     } catch (error) {
         console.error('Error sending message:', error);
@@ -344,20 +341,10 @@ function loadMessages() {
             console.error('Invalid message data:', messageData);
             return;
         }
-
-        // Store the message data in a way that persists across reloads
-        const messageKey = snapshot.key;
-        const messageRef = ref(database, `messages/${messageKey}`);
-        
         try {
-            // Ensure the message data is complete before displaying
-            const messageSnapshot = await get(messageRef);
-            if (messageSnapshot.exists()) {
-                const completeMessageData = messageSnapshot.val();
-                await displayMessage(completeMessageData, messageKey);
-            }
+            await displayMessage(messageData, snapshot.key);
         } catch (error) {
-            console.error('Error loading message:', error);
+            console.error('Error displaying message:', error);
         }
     });
 
@@ -376,64 +363,59 @@ async function displayMessage(messageData, messageKey) {
     const currentUser = localStorage.getItem('yoshibook_user');
     const isCurrentUser = messageData.displayName === currentUser;
     const messageUser = messageData.displayName;
-
-    // build container
+    
     const messageElement = document.createElement('div');
-    messageElement.classList.add('message', isCurrentUser ? 'user' : 'other');
+    messageElement.classList.add('message');
+    messageElement.classList.add(isCurrentUser ? 'user' : 'other');
     messageElement.setAttribute('data-message-id', messageKey);
-
-    // role badge
+    
     let roleBadge = '';
     if (await isAdmin(messageUser)) {
         roleBadge = '<span class="role-badge admin">Admin</span>';
     } else if (await isCoordinator(messageUser)) {
         roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
     }
-
-    // Show “x minutes ago” from createdAt, but fall back to the original timestamp string
-    const createdNum = messageData.createdAt;
-    const formattedTime = (typeof createdNum === 'number')
-                        ? formatTimestamp(createdNum)
-                        : messageData.timestamp;
-
-    // restore full HTML (username, text, timestamp)
+    
+    // Format the timestamp
+    const formattedTime = formatTimestamp(messageData.timestamp);
+    
     messageElement.innerHTML = `
-      <span class="username">${escapeHtml(messageData.displayName)}${roleBadge}</span>
-      <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-      <span class="timestamp">${formattedTime}</span>
+        <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
+        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
+        <span class="timestamp">${formattedTime}</span>
     `;
-
-    // clicking still triggers ban/coord selection
+    
     messageElement.addEventListener('click', () => handleMessageClick(messageElement));
-
-    // delete button logic
+    
+    // Add delete button if:
+    // 1. User is admin or coordinator (can delete anything)
+    // 2. User is the message author
     const isUserAdmin = await isAdmin(currentUser);
     const isUserCoord = await isCoordinator(currentUser);
+    
     if (isUserAdmin || isUserCoord || (isCurrentUser && currentUser !== 'Anonymous')) {
         const deleteBtn = document.createElement('button');
         deleteBtn.classList.add('delete-btn');
         deleteBtn.innerText = '×';
-        deleteBtn.onclick = e => {
+        deleteBtn.onclick = (e) => {
             e.stopPropagation();
             deleteMessage(messageKey, messageUser);
         };
         messageElement.appendChild(deleteBtn);
     }
-
-    // append to DOM
+    
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    // update the timestamp every minute if it is numeric
-    if (typeof rawTs === 'number') {
-      setInterval(() => {
-        const tsEl = messageElement.querySelector('.timestamp');
-        if (tsEl) tsEl.textContent = formatTimestamp(rawTs);
-      }, 60000);
-    }
+    // Update the timestamp every minute
+    setInterval(() => {
+        const timestampElement = messageElement.querySelector('.timestamp');
+        if (timestampElement) {
+            timestampElement.textContent = formatTimestamp(messageData.timestamp);
+        }
+    }, 60000); // Update every minute
 }
-
 
 // Auth functions
 function showLoginModal() {
