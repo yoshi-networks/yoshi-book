@@ -266,8 +266,8 @@ async function sendMessage() {
     // Check if user is banned
     if (await isBanned(user)) {
         showNotification('You have been banned!');
-        messageInput.value = ''; // Clear the input
-        messageInput.disabled = true; // Disable the input
+        messageInput.value = '';
+        messageInput.disabled = true;
         return;
     }
 
@@ -285,20 +285,21 @@ async function sendMessage() {
     const filteredMessage = filterBadWords(messageText);
     const timestamp = Date.now();
     
+    // Get role synchronously from localStorage
+    const roles = JSON.parse(localStorage.getItem('yoshibook_roles') || '{}');
+    const role = roles[user] || 'user';
+    
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
         timestamp: timestamp,
         isUser: user !== 'Anonymous',
-        createdAt: timestamp,
-        role: await getUserRole(user) // Store the role with the message
+        role: role
     };
     
     try {
         const messagesRef = ref(database, 'messages');
-        const newMessageRef = await push(messagesRef, messageData);
-        // Ensure the message is properly saved before clearing input
-        await get(newMessageRef);
+        await push(messagesRef, messageData);
         messageInput.value = '';
     } catch (error) {
         console.error('Error sending message:', error);
@@ -337,97 +338,49 @@ function loadMessages() {
     chatMessages.innerHTML = '';
     
     // Listen for new messages
-    onChildAdded(messagesRef, async (snapshot) => {
+    onChildAdded(messagesRef, (snapshot) => {
         const messageData = snapshot.val();
-        // Ensure we have all required data
-        if (!messageData || !messageData.displayName || !messageData.messageText) {
-            console.error('Invalid message data:', messageData);
-            return;
-        }
-
-        // Store the message data in a way that persists across reloads
-        const messageKey = snapshot.key;
-        const messageRef = ref(database, `messages/${messageKey}`);
+        if (!messageData) return;
         
-        try {
-            // Ensure the message data is complete before displaying
-            const messageSnapshot = await get(messageRef);
-            if (messageSnapshot.exists()) {
-                const completeMessageData = messageSnapshot.val();
-                await displayMessage(completeMessageData, messageKey);
-            }
-        } catch (error) {
-            console.error('Error loading message:', error);
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message');
+        messageElement.classList.add(messageData.displayName === localStorage.getItem('yoshibook_user') ? 'user' : 'other');
+        messageElement.setAttribute('data-message-id', snapshot.key);
+        
+        // Simple role check - no async
+        const roleBadge = messageData.displayName === 'YoshiNetworks' ? 
+            '<span class="role-badge admin">Admin</span>' : 
+            (messageData.role === 'coordinator' ? '<span class="role-badge coordinator">Coordinator</span>' : '');
+        
+        messageElement.innerHTML = `
+            <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
+            <div class="message-text">${escapeHtml(messageData.messageText)}</div>
+            <span class="timestamp">${formatTimestamp(messageData.timestamp)}</span>
+        `;
+        
+        // Add delete button if user is message author
+        if (messageData.displayName === localStorage.getItem('yoshibook_user')) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.classList.add('delete-btn');
+            deleteBtn.innerText = '×';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteMessage(snapshot.key, messageData.displayName);
+            };
+            messageElement.appendChild(deleteBtn);
         }
+        
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     });
 
     // Listen for deleted messages
     onChildRemoved(messagesRef, (snapshot) => {
-        const messageKey = snapshot.key;
-        const messageElement = document.querySelector(`[data-message-id="${messageKey}"]`);
+        const messageElement = document.querySelector(`[data-message-id="${snapshot.key}"]`);
         if (messageElement) {
             messageElement.remove();
         }
     });
-}
-
-// Update the displayMessage function to show formatted timestamps
-async function displayMessage(messageData, messageKey) {
-    const currentUser = localStorage.getItem('yoshibook_user');
-    const isCurrentUser = messageData.displayName === currentUser;
-    const messageUser = messageData.displayName;
-    
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message');
-    messageElement.classList.add(isCurrentUser ? 'user' : 'other');
-    messageElement.setAttribute('data-message-id', messageKey);
-    
-    let roleBadge = '';
-    if (await isAdmin(messageUser)) {
-        roleBadge = '<span class="role-badge admin">Admin</span>';
-    } else if (await isCoordinator(messageUser)) {
-        roleBadge = '<span class="role-badge coordinator">Coordinator</span>';
-    }
-    
-    // Format the timestamp
-    const formattedTime = formatTimestamp(messageData.timestamp);
-    
-    messageElement.innerHTML = `
-        <span class="username">${escapeHtml(messageData.displayName)}:${roleBadge}</span>
-        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-        <span class="timestamp">${formattedTime}</span>
-    `;
-    
-    messageElement.addEventListener('click', () => handleMessageClick(messageElement));
-    
-    // Add delete button if:
-    // 1. User is admin or coordinator (can delete anything)
-    // 2. User is the message author
-    const isUserAdmin = await isAdmin(currentUser);
-    const isUserCoord = await isCoordinator(currentUser);
-    
-    if (isUserAdmin || isUserCoord || (isCurrentUser && currentUser !== 'Anonymous')) {
-        const deleteBtn = document.createElement('button');
-        deleteBtn.classList.add('delete-btn');
-        deleteBtn.innerText = '×';
-        deleteBtn.onclick = (e) => {
-            e.stopPropagation();
-            deleteMessage(messageKey, messageUser);
-        };
-        messageElement.appendChild(deleteBtn);
-    }
-    
-    const chatMessages = document.getElementById('chat-messages');
-    chatMessages.appendChild(messageElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-
-    // Update the timestamp every minute
-    setInterval(() => {
-        const timestampElement = messageElement.querySelector('.timestamp');
-        if (timestampElement) {
-            timestampElement.textContent = formatTimestamp(messageData.timestamp);
-        }
-    }, 60000); // Update every minute
 }
 
 // Auth functions
