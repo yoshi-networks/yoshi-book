@@ -255,7 +255,7 @@ function formatTimestamp(timestamp) {
     }
 }
 
-// Update the sendMessage function to store the timestamp
+// Update the sendMessage function to ensure proper data structure
 async function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const messageText = messageInput.value.trim();
@@ -283,22 +283,24 @@ async function sendMessage() {
     }
 
     const filteredMessage = filterBadWords(messageText);
-    const timestamp = Date.now(); // Store the timestamp as milliseconds
+    const timestamp = Date.now();
     
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
-        timestamp: timestamp, // Store the raw timestamp
+        timestamp: timestamp,
         isUser: user !== 'Anonymous',
         createdAt: timestamp
     };
     
-    const messagesRef = ref(database, 'messages');
-    push(messagesRef, messageData)
-        .then(() => {
-            messageInput.value = '';
-        })
-        .catch(handleFirebaseError);
+    try {
+        const messagesRef = ref(database, 'messages');
+        await push(messagesRef, messageData);
+        messageInput.value = '';
+    } catch (error) {
+        console.error('Error sending message:', error);
+        showNotification('Error sending message');
+    }
 }
 
 async function deleteMessage(messageId, messageAuthor) {
@@ -332,9 +334,18 @@ function loadMessages() {
     chatMessages.innerHTML = '';
     
     // Listen for new messages
-    onChildAdded(messagesRef, (snapshot) => {
+    onChildAdded(messagesRef, async (snapshot) => {
         const messageData = snapshot.val();
-        displayMessage(messageData, snapshot.key);
+        // Ensure we have all required data
+        if (!messageData || !messageData.displayName || !messageData.messageText) {
+            console.error('Invalid message data:', messageData);
+            return;
+        }
+        try {
+            await displayMessage(messageData, snapshot.key);
+        } catch (error) {
+            console.error('Error displaying message:', error);
+        }
     });
 
     // Listen for deleted messages
