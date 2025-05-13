@@ -319,4 +319,45 @@ document.addEventListener('DOMContentLoaded', () => {
             event.target.style.display = 'none';
         }
     };
+/** 
+ * Whenever a new message appears, fetch all messages,
+ * group them by their text, and delete every message
+ * beyond the first three in each group.
+ */
+async function pruneRepeatingMessages() {
+  const messagesRef = ref(database, 'messages');
+  try {
+    const snap = await get(messagesRef);
+    if (!snap.exists()) return;
+
+    const all = snap.val();
+    // group by text
+    const groups = {};
+    Object.entries(all).forEach(([key, msg]) => {
+      const text = msg.messageText;
+      if (!groups[text]) groups[text] = [];
+      groups[text].push({ key, createdAt: msg.createdAt });
+    });
+
+    // for each group with more than 3 items, delete the extras
+    Object.values(groups).forEach(arr => {
+      if (arr.length > 3) {
+        // sort by creation time ascending
+        arr.sort((a, b) => a.createdAt - b.createdAt);
+        // keep first 3, delete the rest
+        const toDelete = arr.slice(3);
+        toDelete.forEach(({ key }) => {
+          remove(ref(database, `messages/${key}`))
+            .catch(console.error);
+        });
+      }
+    });
+  } catch (e) {
+    console.error('Error pruning repeats:', e);
+  }
+}
+
+// attach the pruner to every child‑added event
+onChildAdded(ref(database, 'messages'), () => {
+  pruneRepeatingMessages();
 });
