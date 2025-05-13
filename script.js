@@ -319,11 +319,14 @@ document.addEventListener('DOMContentLoaded', () => {
             event.target.style.display = 'none';
         }
     };
-/** 
- * Whenever a new message appears, fetch all messages,
- * group them by their text, and delete every message
- * beyond the first three in each group.
+ages'), () => {
+    
+/**
+ * Every PRUNE_INTERVAL_MS milliseconds, scan *all* messages and
+ * delete every 4th+ duplicate (leaving only the first three of each text).
  */
+const PRUNE_INTERVAL_MS = 5000; // 🔧 change this to whatever interval you like
+
 async function pruneRepeatingMessages() {
   const messagesRef = ref(database, 'messages');
   try {
@@ -331,33 +334,32 @@ async function pruneRepeatingMessages() {
     if (!snap.exists()) return;
 
     const all = snap.val();
-    // group by text
     const groups = {};
+
+    // Group by messageText
     Object.entries(all).forEach(([key, msg]) => {
       const text = msg.messageText;
       if (!groups[text]) groups[text] = [];
       groups[text].push({ key, createdAt: msg.createdAt });
     });
 
-    // for each group with more than 3 items, delete the extras
+    // For each group with > 3, delete everything after the third oldest
     Object.values(groups).forEach(arr => {
       if (arr.length > 3) {
-        // sort by creation time ascending
         arr.sort((a, b) => a.createdAt - b.createdAt);
-        // keep first 3, delete the rest
-        const toDelete = arr.slice(3);
-        toDelete.forEach(({ key }) => {
-          remove(ref(database, `messages/${key}`))
-            .catch(console.error);
+        arr.slice(3).forEach(({ key }) => {
+          remove(ref(database, `messages/${key}`)).catch(console.error);
         });
       }
     });
+
   } catch (e) {
-    console.error('Error pruning repeats:', e);
+    console.error('Error pruning repeating messages:', e);
   }
 }
 
-// attach the pruner to every child‑added event
-onChildAdded(ref(database, 'messages'), () => {
-  pruneRepeatingMessages();
+// Kick off immediate run, then repeat every PRUNE_INTERVAL_MS
+pruneRepeatingMessages();
+setInterval(pruneRepeatingMessages, PRUNE_INTERVAL_MS);
+
 });
