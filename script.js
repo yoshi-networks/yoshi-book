@@ -320,7 +320,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 ages'), () => {
-    
+});   
+
 /**
  * Every PRUNE_INTERVAL_MS milliseconds, scan *all* messages and
  * delete every 4th+ duplicate (leaving only the first three of each text).
@@ -361,5 +362,3 @@ async function pruneRepeatingMessages() {
 // Kick off immediate run, then repeat every PRUNE_INTERVAL_MS
 pruneRepeatingMessages();
 setInterval(pruneRepeatingMessages, PRUNE_INTERVAL_MS);
-
-});
