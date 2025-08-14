@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Yoshibook Chat</title>
     <link rel="stylesheet" href="index.css" />
 </head>
@@ -10,60 +10,49 @@
     <div class="chat-container" role="main">
         <div class="chat-header" role="banner">
             <h2><a href="index.html" class="header-link">Yoshibook Chat</a></h2>
-
-            <!-- auth buttons are placed inside header (CSS handles alignment) -->
-            <div class="auth-buttons" aria-live="polite"></div>
+            <div class="auth-buttons" aria-live="polite" id="authButtons">
+                <button class="auth-btn login-btn" onclick="window.showLoginModal()">Login</button>
+                <button class="auth-btn signup-btn" onclick="window.showSignupModal()">Sign Up</button>
+            </div>
         </div>
 
-        <div id="chat-messages" class="chat-messages" aria-live="polite" aria-label="Chat messages">
+        <div id="chat-messages" class="chat-messages" aria-label="Chat messages" tabindex="0">
             <!-- Messages will appear here -->
         </div>
 
-        <div class="chat-input">
-            <form id="messageForm" onsubmit="event.preventDefault(); window.sendMessage();">
-                <input type="text" id="message-input" placeholder="Type a message..." aria-label="Type a message" />
-                <button type="button" onclick="window.sendMessage()">Send</button>
+        <div class="chat-input" role="form" aria-label="Send a message">
+            <form id="sendForm" onsubmit="event.preventDefault(); window.sendMessage();">
+                <input type="text" id="message-input" placeholder="Type a message..." aria-label="Type a message" onkeydown="window.handleKeyDown(event)" />
+                <button type="submit">Send</button>
             </form>
         </div>
     </div>
 
     <!-- Login Modal -->
-    <div id="loginModal" class="modal" role="dialog" aria-hidden="true" aria-labelledby="loginTitle">
+    <div id="loginModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
         <div class="modal-content" onclick="event.stopPropagation()">
-            <h2 id="loginTitle">Login to Yoshibook</h2>
-            <form id="loginForm" onsubmit="window.handleLogin(event)">
-                <label for="loginUsername" class="sr-only">Username</label>
-                <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username" />
-                <label for="loginPassword" class="sr-only">Password</label>
-                <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password" />
+            <h2 id="loginModalTitle">Login to Yoshibook</h2>
+            <form id="loginForm" onsubmit="window.handleLogin(event)" aria-labelledby="loginModalTitle">
+                <label for="loginUsername" class="visually-hidden">Username</label>
+                <input type="text" id="loginUsername" placeholder="Username" required />
+                <label for="loginPassword" class="visually-hidden">Password</label>
+                <input type="password" id="loginPassword" placeholder="Password" required />
                 <button type="submit">Login</button>
             </form>
         </div>
     </div>
 
     <!-- Signup Modal -->
-    <div id="signupModal" class="modal" role="dialog" aria-hidden="true" aria-labelledby="signupTitle">
+    <div id="signupModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
         <div class="modal-content" onclick="event.stopPropagation()">
-            <h2 id="signupTitle">Create Account</h2>
-            <form id="signupForm" onsubmit="window.handleSignup(event)">
-                <label for="signupUsername" class="sr-only">Choose Username</label>
-                <input type="text" id="signupUsername" placeholder="Choose Username" required autocomplete="username" />
-                <label for="signupPassword" class="sr-only">Choose Password</label>
-                <input type="password" id="signupPassword" placeholder="Choose Password" required autocomplete="new-password" />
+            <h2 id="signupModalTitle">Create Account</h2>
+            <form id="signupForm" onsubmit="window.handleSignup(event)" aria-labelledby="signupModalTitle">
+                <label for="signupUsername" class="visually-hidden">Username</label>
+                <input type="text" id="signupUsername" placeholder="Choose Username" required />
+                <label for="signupPassword" class="visually-hidden">Password</label>
+                <input type="password" id="signupPassword" placeholder="Choose Password" required />
                 <button type="submit">Sign Up</button>
             </form>
-        </div>
-    </div>
-
-    <!-- Re-usable confirm modal (hidden by default) -->
-    <div id="confirmModal" class="modal" role="dialog" aria-hidden="true" aria-labelledby="confirmTitle">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <h3 id="confirmTitle">Confirm</h3>
-            <div id="confirmMessage"></div>
-            <div style="margin-top:12px; display:flex; justify-content:flex-end; gap:8px;">
-                <button id="confirmCancel">Cancel</button>
-                <button id="confirmOk">OK</button>
-            </div>
         </div>
     </div>
 
