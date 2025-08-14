@@ -1,25 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yoshibook</title>
-    <link rel="stylesheet" href="index.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Yoshibook Chat</title>
+    <link rel="stylesheet" href="index.css" />
 </head>
 <body>
-    <div class="home-container">
-        <div class="home-content">
-            <h1>Welcome to Yoshibook</h1>
-            <p class="subtitle">Connect with friends in our cozy chat space</p>
-            <button class="enter-chat-btn" onclick="window.location.href='chat.html'">
-                Enter Yoshi Chat
-                <span class="btn-arrow">→</span>
-            </button>
-            <div class="mascot-container">
-                <img src="yoshi-placeholder.png" alt="Yoshi Mascot" class="mascot-image">
+    <div class="chat-container" role="main">
+        <div class="chat-header" role="banner">
+            <h2><a href="index.html" class="header-link">Yoshibook Chat</a></h2>
+
+            <!-- auth buttons are placed inside header (CSS handles alignment) -->
+            <div class="auth-buttons" aria-live="polite"></div>
+        </div>
+
+        <div id="chat-messages" class="chat-messages" aria-live="polite" aria-label="Chat messages">
+            <!-- Messages will appear here -->
+        </div>
+
+        <div class="chat-input">
+            <form id="messageForm" onsubmit="event.preventDefault(); window.sendMessage();">
+                <input type="text" id="message-input" placeholder="Type a message..." aria-label="Type a message" />
+                <button type="button" onclick="window.sendMessage()">Send</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal" role="dialog" aria-hidden="true" aria-labelledby="loginTitle">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2 id="loginTitle">Login to Yoshibook</h2>
+            <form id="loginForm" onsubmit="window.handleLogin(event)">
+                <label for="loginUsername" class="sr-only">Username</label>
+                <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username" />
+                <label for="loginPassword" class="sr-only">Password</label>
+                <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password" />
+                <button type="submit">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div id="signupModal" class="modal" role="dialog" aria-hidden="true" aria-labelledby="signupTitle">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2 id="signupTitle">Create Account</h2>
+            <form id="signupForm" onsubmit="window.handleSignup(event)">
+                <label for="signupUsername" class="sr-only">Choose Username</label>
+                <input type="text" id="signupUsername" placeholder="Choose Username" required autocomplete="username" />
+                <label for="signupPassword" class="sr-only">Choose Password</label>
+                <input type="password" id="signupPassword" placeholder="Choose Password" required autocomplete="new-password" />
+                <button type="submit">Sign Up</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Re-usable confirm modal (hidden by default) -->
+    <div id="confirmModal" class="modal" role="dialog" aria-hidden="true" aria-labelledby="confirmTitle">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3 id="confirmTitle">Confirm</h3>
+            <div id="confirmMessage"></div>
+            <div style="margin-top:12px; display:flex; justify-content:flex-end; gap:8px;">
+                <button id="confirmCancel">Cancel</button>
+                <button id="confirmOk">OK</button>
             </div>
         </div>
     </div>
+
+    <script type="module" src="script.js"></script>
 </body>
 </html>
