@@ -171,8 +171,8 @@ function deleteMessage(messageKey, messageElement) {
             const messageRef = ref(database, `messages/${messageKey}`);
             remove(messageRef)
                 .then(() => {
-                    // element will also be removed by onChildRemoved listener
                     showNotification('Message deleted');
+                    // the element will be removed by onChildRemoved listener
                 })
                 .catch(handleFirebaseError);
         }, () => {
@@ -241,7 +241,7 @@ function handleChildRemoved(snapshot) {
     if (el) el.remove();
 }
 
-// load messages (use query limitToLast to avoid loading entire DB into UI)
+// load messages (use limitToLast to avoid huge initial UI load)
 function loadMessages() {
     if (messagesLoaded) return;
     messagesLoaded = true;
@@ -261,13 +261,12 @@ function loadMessages() {
 
 /**
  * pruneRepeatingMessages:
- * - Reads all messages (get on /messages)
- * - Groups by normalized message text (trim, collapse whitespace, case-insensitive)
- * - Keeps the three oldest messages for each unique text and deletes the rest
+ * - Reads whole /messages node with get() (no orderByChild used -> no indexOn required)
+ * - Normalizes each message's text (collapse whitespace, trim, toLowerCase)
+ * - Keeps the first 3 occurrences (by createdAt ascending if available), deletes the rest
  *
- * Note: this reads the whole messages node and performs deletes. In a production system
- * you'd move this logic to a server/cloud-function to avoid client reads and to centralize
- * moderation/pruning.
+ * WARNING: this reads the entire /messages node and will cost reads on large datasets.
+ * For production move this logic to a Cloud Function.
  */
 const PRUNE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -283,20 +282,27 @@ async function pruneRepeatingMessages() {
         // Group by normalized text
         Object.entries(all).forEach(([key, msg]) => {
             const rawText = (msg && msg.messageText) ? String(msg.messageText) : '';
-            // normalization: trim, collapse whitespace, lower-case
+            // normalization: collapse whitespace, trim, lower-case
             const normalized = rawText.replace(/\s+/g, ' ').trim().toLowerCase();
             if (!normalized) return; // skip empty messages
             if (!groups[normalized]) groups[normalized] = [];
-            const createdAt = typeof msg.createdAt === 'number' ? msg.createdAt : (msg.createdAt && msg.createdAt['.sv'] ? Date.now() : (msg.createdAt || Date.now()));
+            // createdAt may be a number, or a server-timestamp placeholder; handle both
+            let createdAt = msg && msg.createdAt;
+            if (typeof createdAt === 'object' && createdAt !== null) {
+                // fallback if server placeholder object present
+                createdAt = Date.now();
+            }
+            if (typeof createdAt !== 'number') createdAt = Date.now();
             groups[normalized].push({ key, createdAt });
         });
 
-        // For each group, keep the three oldest, delete the rest
+        // For each group, keep the three oldest (smallest createdAt), delete the rest
         for (const normalizedText in groups) {
             const arr = groups[normalizedText];
             if (arr.length > 3) {
                 arr.sort((a, b) => a.createdAt - b.createdAt);
                 const toDelete = arr.slice(3);
+                // delete sequentially to avoid bursts
                 for (const item of toDelete) {
                     try {
                         await remove(ref(database, `messages/${item.key}`));
@@ -315,7 +321,8 @@ async function pruneRepeatingMessages() {
 pruneRepeatingMessages();
 setInterval(pruneRepeatingMessages, PRUNE_INTERVAL_MS);
 
-// Authentication UI helpers and the rest remain unchanged and exported
+// Authentication UI helpers and remaining functions
+
 function showLoginModal() {
     const modal = document.getElementById('loginModal');
     if (modal) {
