@@ -27,65 +27,97 @@ body {
     -moz-osx-font-smoothing:grayscale;
 }
 
-/* Header Buttons - use flex layout within header rather than absolute positioning */
+/* Chat container: floating in bottom-right corner with collapse support */
+.chat-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 360px;
+    height: 520px;
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    overflow: hidden;
+    z-index: 9999;
+    transition: transform 0.18s ease, width 0.18s ease, height 0.18s ease;
+}
+
+/* collapsed state: show only header */
+.chat-container.collapsed {
+    width: 240px;
+    height: auto;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+.chat-container.collapsed .chat-messages,
+.chat-container.collapsed .chat-input {
+    display: none;
+    height: 0;
+    overflow: hidden;
+}
+
+/* On very small screens, make the chat nearly full-width and anchored to bottom */
+@media (max-width: 520px) {
+    .chat-container {
+        left: 8px;
+        right: 8px;
+        width: auto;
+        height: 60vh;
+        bottom: 12px;
+    }
+    .chat-container.collapsed {
+        width: auto;
+        right: 8px;
+    }
+}
+
+/* Header */
 .chat-header {
     background-color: var(--primary-color);
-    padding: 15px 20px;
+    padding: 10px 12px;
     color: white;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    position: relative;
+    gap: 10px;
+}
+
+.header-link {
+    color: white;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.05rem;
 }
 
 .auth-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
 }
 
 .auth-btn {
-    padding: 8px 16px;
-    border-radius: 20px;
+    padding: 6px 10px;
+    border-radius: 8px;
     border: none;
     cursor: pointer;
     font-weight: 600;
-    transition: all 0.18s ease;
-    outline: none;
-}
-
-.login-btn {
-    background-color: var(--primary-color);
+    transition: all 0.15s ease;
+    background: rgba(255,255,255,0.1);
     color: white;
-    border: 1px solid rgba(255,255,255,0.12);
-}
-
-.signup-btn {
-    background-color: white;
-    color: var(--primary-color);
-    border: 2px solid var(--primary-color);
 }
 
 .auth-btn:hover, .auth-btn:focus {
-    transform: translateY(-2px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
-/* Chat Container */
-.chat-container {
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    overflow: hidden;
-    height: calc(100vh - 2rem);
-    margin: 1rem;
-    display: flex;
-    flex-direction: column;
-}
-
+/* chat messages area */
 .chat-messages {
     flex: 1;
-    padding: 20px;
+    padding: 14px;
     background-color: var(--background-color);
     overflow-y: auto;
     scrollbar-width: thin;
@@ -94,23 +126,18 @@ body {
 /* message bubbles */
 .message {
     max-width: 70%;
-    padding: 12px 16px;
+    padding: 10px 14px;
     margin: 8px 0;
-    border-radius: 18px;
+    border-radius: 14px;
     position: relative;
-    animation: messageAppear 0.24s ease;
+    animation: messageAppear 0.18s ease;
     word-break: break-word;
+    background: #fff;
 }
 
 @keyframes messageAppear {
-    from {
-        opacity: 0;
-        transform: translateY(6px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .message.user {
@@ -125,156 +152,66 @@ body {
     color: #333;
     margin-right: auto;
     border-bottom-left-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
 }
 
-/* username and text */
 .message .username {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 6px;
+    display:block;
+    font-weight:600;
+    margin-bottom:6px;
 }
 
-.message .message-text {
-    white-space: pre-wrap;
+.message .message-text { white-space: pre-wrap; }
+
+.timestamp {
+    position:absolute;
+    right:10px;
+    bottom:6px;
+    font-size:0.72rem;
+    opacity:0.7;
 }
 
 /* input area */
 .chat-input {
-    padding: 15px;
+    padding: 10px;
     background-color: white;
     border-top: 1px solid #eee;
     display: flex;
-    gap: 10px;
-    align-items: center;
+    gap: 8px;
+    align-items:center;
 }
 
 .chat-input input {
     flex: 1;
-    padding: 12px 20px;
+    padding: 10px 14px;
     border: 2px solid #eee;
-    border-radius: 25px;
-    transition: border-color 0.18s ease;
-    font-size: 1rem;
+    border-radius: 20px;
+    transition: border-color 0.15s ease;
 }
 
-.chat-input input:focus {
-    border-color: var(--primary-color);
-    outline: none;
-}
+.chat-input input:focus { border-color: var(--primary-color); outline:none; }
 
 .chat-input button {
-    padding: 12px 24px;
+    padding: 10px 14px;
     background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 25px;
-    cursor: pointer;
-    transition: all 0.18s ease;
-    white-space: nowrap;
+    color:white;
+    border:none;
+    border-radius: 20px;
+    cursor:pointer;
 }
 
-.chat-input button:hover {
-    background-color: var(--secondary-color);
-    transform: translateY(-2px);
-}
-
-/* Modal Styles */
+/* modal */
 .modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.5);
+    top:0; left:0; right:0; bottom:0;
     display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    animation: modalFade 0.18s ease;
+    justify-content:center;
+    align-items:center;
+    background: rgba(0,0,0,0.45);
+    z-index: 10000;
 }
 
-@keyframes modalFade {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.modal-content {
-    background-color: white;
-    padding: 30px;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 420px;
-    animation: modalSlide 0.18s ease;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-}
-
-@keyframes modalSlide {
-    from {
-        transform: translateY(-20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-.modal-content form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.modal-content input {
-    padding: 10px;
-    border: 2px solid #eee;
-    border-radius: 6px;
-    font-size: 16px;
-}
-
-.modal-content input:focus {
-    border-color: var(--primary-color);
-    outline: none;
-}
-
-.modal-content button {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 10px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.18s ease;
-}
-
-.modal-content button:hover {
-    background-color: var(--secondary-color);
-}
-
-/* delete button on message */
-.delete-btn {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    background: transparent;
-    border: none;
-    color: rgba(255,255,255,0.8);
-    cursor: pointer;
-    font-size: 18px;
-    padding: 6px;
-}
-
-.message.other .delete-btn {
-    color: rgba(0,0,0,0.6);
-}
-
-.delete-btn:hover {
-    color: rgba(255,0,0,0.9);
-}
-
-/* notification */
+/* small notification */
 .notification {
     position: fixed;
     top: 16px;
@@ -283,99 +220,14 @@ body {
     padding: 12px 16px;
     border-radius: 8px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-    z-index: 1100;
+    z-index: 11000;
     opacity: 0;
     transform: translateY(-6px);
     transition: all 0.18s ease;
 }
+.notification.show { opacity:1; transform:translateY(0); }
 
-.notification.show {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* homepage / hero (kept for the home page file that references this CSS) */
-.home-container {
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: var(--primary-light);
-}
-
-.home-content {
-    text-align: center;
-    padding: 2rem;
-    max-width: 600px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.home-content h1 {
-    font-size: 3.5rem;
-    color: var(--primary-color);
-    margin-bottom: 1rem;
-    font-weight: 700;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.05);
-}
-
-.subtitle {
-    font-size: 1.2rem;
-    color: #666;
-    margin-bottom: 2rem;
-}
-
-.enter-chat-btn {
-    background-color: var(--primary-light);
-    color: var(--primary-color);
-    padding: 1.2rem 2rem;
-    border: 3px solid var(--primary-color);
-    border-radius: 30px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.18s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    margin: 1rem 0;
-}
-
-.enter-chat-btn:hover {
-    background-color: var(--primary-color);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(52, 152, 219, 0.15);
-}
-
-.btn-arrow {
-    transition: transform 0.18s ease;
-}
-
-.enter-chat-btn:hover .btn-arrow {
-    transform: translateX(5px);
-}
-
-.mascot-container {
-    margin-top: 3rem;
-    position: relative;
-}
-
-.mascot-image {
-    max-width: 200px;
-    height: auto;
-    filter: drop-shadow(0 6px 12px rgba(0,0,0,0.12));
-    animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-}
-
-/* small screens */
-@media (max-width: 640px) {
-    .message { max-width: 90%; }
-    .chat-container { height: calc(100vh - 1rem); margin: 0.5rem; }
-}
+/* homepage styles kept as before */
+.home-container { height:100vh; display:flex; justify-content:center; align-items:center; background-color:var(--primary-light); }
+.home-content { text-align:center; padding:2rem; max-width:600px; display:flex; flex-direction:column; align-items:center; }
+.enter-chat-btn { background-color:var(--primary-light); color:var(--primary-color); padding:1.2rem 2rem; border:3px solid var(--primary-color); border-radius:30px; font-weight:600; cursor:pointer; }
