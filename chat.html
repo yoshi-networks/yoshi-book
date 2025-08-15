@@ -7,27 +7,22 @@
     <link rel="stylesheet" href="index.css" />
 </head>
 <body>
-    <!-- Floating chat container (bottom-right). Toggle the 'collapsed' class to minimize. -->
-    <div id="yoshibookChat" class="chat-container" role="region" aria-label="Yoshibook chat window">
+    <div class="chat-container" role="main" aria-label="Yoshibook chat container">
         <header class="chat-header" role="banner">
-            <div style="display:flex;align-items:center;gap:8px;">
-                <a href="index.html" class="header-link" aria-label="Home - Yoshibook Chat">Yoshibook Chat</a>
-            </div>
+            <h2><a href="index.html" class="header-link">Yoshibook Chat</a></h2>
 
-            <div style="display:flex;align-items:center;gap:8px;">
-                <div class="auth-buttons" aria-live="polite">
-                    <button class="auth-btn login-btn" id="loginTrigger">Login</button>
-                    <button class="auth-btn signup-btn" id="signupTrigger">Sign Up</button>
-                </div>
-                <button id="toggleChatBtn" class="auth-btn" aria-pressed="false" title="Minimize/Expand chat">▾</button>
+            <!-- Auth buttons are placed here — updated CSS makes this layout consistent -->
+            <div class="auth-buttons" aria-live="polite">
+                <button class="auth-btn login-btn" id="loginTrigger">Login</button>
+                <button class="auth-btn signup-btn" id="signupTrigger">Sign Up</button>
             </div>
         </header>
 
         <section id="chat-messages" class="chat-messages" aria-live="polite" aria-label="Chat messages">
-            <!-- Messages will appear here -->
+            <!-- Messages are appended here -->
         </section>
 
-        <!-- Input wrapped in a form: accessible and lets Enter submit -->
+        <!-- Wrap input in a form to improve accessibility and allow Enter to submit -->
         <form id="messageForm" class="chat-input" aria-label="Send message form">
             <label for="message-input" class="visually-hidden">Type your message</label>
             <input type="text" id="message-input" name="message" placeholder="Type a message..." autocomplete="off" />
@@ -63,46 +58,28 @@
         </div>
     </div>
 
-    <!-- Global notification container -->
+    <!-- Simple accessible notification container for short messages -->
     <div id="globalNotification" aria-live="assertive" class="notification" style="display:none;"></div>
 
-    <!-- main chat script (module) -->
+    <!-- script.js is a module (imports firebase). Keep it a module. -->
     <script type="module" src="script.js"></script>
 
     <script>
-    // Connect UI controls to functions exported by script.js
-    document.getElementById('loginTrigger').addEventListener('click', () => { if (window.showLoginModal) window.showLoginModal(); });
-    document.getElementById('signupTrigger').addEventListener('click', () => { if (window.showSignupModal) window.showSignupModal(); });
-
-    // Toggle chat minimize/expand
-    const toggleBtn = document.getElementById('toggleChatBtn');
-    const chatContainer = document.getElementById('yoshibookChat');
-    toggleBtn.addEventListener('click', () => {
-        const collapsed = chatContainer.classList.toggle('collapsed');
-        toggleBtn.setAttribute('aria-pressed', String(collapsed));
-        // store preference
-        try { localStorage.setItem('yoshibook_chat_collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    // Connect modal buttons to exported window functions (script.js will assign them to window)
+    document.getElementById('loginTrigger').addEventListener('click', () => {
+        if (window.showLoginModal) window.showLoginModal();
+    });
+    document.getElementById('signupTrigger').addEventListener('click', () => {
+        if (window.showSignupModal) window.showSignupModal();
     });
 
-    // restore collapsed state if saved
-    (function restoreCollapsed() {
-        try {
-            const saved = localStorage.getItem('yoshibook_chat_collapsed');
-            if (saved === '1') {
-                chatContainer.classList.add('collapsed');
-                toggleBtn.setAttribute('aria-pressed','true');
-            }
-        } catch(e) {}
-    })();
-
-    // Message form submit => sendMessage
-    const messageForm = document.getElementById('messageForm');
-    messageForm.addEventListener('submit', (e) => {
+    // Message send via form submit
+    document.getElementById('messageForm').addEventListener('submit', (e) => {
         e.preventDefault();
         if (window.sendMessage) window.sendMessage();
     });
 
-    // Close modals by clicking background
+    // Close modals by clicking background (robust)
     window.addEventListener('click', function(event) {
         const modals = document.querySelectorAll('.modal');
         modals.forEach(modal => {
@@ -113,7 +90,7 @@
         });
     });
 
-    // Escape closes modals
+    // Keyboard shortcut: Esc closes modals
     window.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             const modals = document.querySelectorAll('.modal');
