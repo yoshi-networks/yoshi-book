@@ -3,7 +3,7 @@
 
 // Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-import { getDatabase, ref, get, set, child } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
 // Same config as the chat page (keep consistent)
 const firebaseConfig = {
