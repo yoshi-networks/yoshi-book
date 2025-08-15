@@ -1,8 +1,20 @@
-// Firebase imports
+// script.js (module)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-import { getDatabase, ref, onChildAdded, push, remove, get, set } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+import {
+    getDatabase,
+    ref,
+    onChildAdded,
+    push,
+    remove,
+    get,
+    set,
+    serverTimestamp,
+    query,
+    limitToLast,
+    orderByChild
+} from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
-// Firebase config
+// Firebase config (same as login.js)
 const firebaseConfig = {
     apiKey: "AIzaSyCdnPP1xNfe13SuDNuaP2rOL6_WcbPN8cI",
     authDomain: "yoshibook-ba4ca.firebaseapp.com",
@@ -14,81 +26,129 @@ const firebaseConfig = {
     databaseURL: "https://yoshibook-ba4ca-default-rtdb.firebaseio.com/"
 };
 
-// Initialize Firebase
+// Initialize
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
 let messagesLoaded = false;
 
-// Add this bad words list near the top of the file
+// BAD WORDS LIST (kept as requested). Note: storing slurs in code can be sensitive.
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
     'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
 ];
 
-// Add this function for bad word filtering
+// filterBadWords: preserve case and match whole words only
 function filterBadWords(text) {
-    let filteredText = text.toLowerCase();
+    if (text === null || text === undefined) return '';
+    let filtered = text;
     BAD_WORDS.forEach(word => {
-        const regex = new RegExp(word, 'gi');
-        filteredText = filteredText.replace(regex, '*'.repeat(word.length));
+        const safeWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${safeWord}\\b`, 'gi');
+        filtered = filtered.replace(regex, (match) => '*'.repeat(match.length));
     });
-    return filteredText;
+    return filtered;
 }
 
-// Add this cookie utility functions at the top after Firebase initialization
+// escapeHtml defensive
+function escapeHtml(unsafe) {
+    if (unsafe === null || unsafe === undefined) return '';
+    return String(unsafe)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// Cookies utilities (kept but improved)
 function setCookie(name, value, days) {
     const expires = new Date();
     expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
-    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+    // add SameSite and Secure where appropriate
+    let cookieStr = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+    if (location.protocol === 'https:') cookieStr += ';Secure';
+    document.cookie = cookieStr;
 }
 
 function getCookie(name) {
     const nameEQ = name + "=";
     const ca = document.cookie.split(';');
-    for(let i = 0; i < ca.length; i++) {
-        let c = ca[i];
-        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i].trim();
         if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
     }
     return null;
 }
 
-// Add notification function
-function showNotification(message) {
-    const notification = document.createElement('div');
-    notification.className = 'notification';
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    
+// Show small ephemeral notification (top-right)
+function showNotification(message, duration = 2200) {
+    const container = document.getElementById('globalNotification');
+    if (!container) return;
+    container.textContent = message;
+    container.classList.add('show');
+    container.style.display = 'block';
     setTimeout(() => {
-        notification.classList.add('show');
-    }, 100);
-    
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 300);
-    }, 2000);
+        container.classList.remove('show');
+        setTimeout(() => container.style.display = 'none', 220);
+    }, duration);
 }
 
-// Message functions
+// Confirmation dialog for destructive actions (delete)
+function showConfirm(message, onConfirm, onCancel) {
+    // create confirm node
+    const confirmBox = document.createElement('div');
+    confirmBox.className = 'notification';
+    confirmBox.setAttribute('role', 'alertdialog');
+    confirmBox.setAttribute('aria-modal', 'true');
+
+    const text = document.createElement('div');
+    text.textContent = message;
+
+    const buttons = document.createElement('div');
+    buttons.style.display = 'flex';
+    buttons.style.gap = '8px';
+    buttons.style.marginTop = '12px';
+    const ok = document.createElement('button');
+    ok.textContent = 'Delete';
+    ok.style.backgroundColor = '#f44336';
+    ok.style.color = '#fff';
+    ok.onclick = () => {
+        onConfirm && onConfirm();
+        confirmBox.remove();
+    };
+    const cancel = document.createElement('button');
+    cancel.textContent = 'Cancel';
+    cancel.onclick = () => {
+        onCancel && onCancel();
+        confirmBox.remove();
+    };
+    buttons.appendChild(ok);
+    buttons.appendChild(cancel);
+    confirmBox.appendChild(text);
+    confirmBox.appendChild(buttons);
+
+    document.body.appendChild(confirmBox);
+}
+
+// Send message
 function sendMessage() {
     const messageInput = document.getElementById('message-input');
-    const messageText = messageInput.value.trim();
+    if (!messageInput) return;
+    const raw = messageInput.value.trim();
+    if (!raw) return;
 
-    if (messageText === '') return;
-
-    const filteredMessage = filterBadWords(messageText);
+    const filteredMessage = filterBadWords(raw);
     const user = localStorage.getItem('yoshibook_user') || 'Anonymous';
-    
+
     const messageData = {
         displayName: user,
         messageText: filteredMessage,
         timestamp: new Date().toLocaleTimeString(),
         isUser: user !== 'Anonymous',
-        createdAt: Date.now()
+        createdAt: serverTimestamp()
     };
-    
+
     const messagesRef = ref(database, 'messages');
     push(messagesRef, messageData)
         .then(() => {
@@ -97,200 +157,273 @@ function sendMessage() {
         .catch(handleFirebaseError);
 }
 
+// delete message with confirmation and permission check
 function deleteMessage(messageKey, messageElement) {
-    const user = localStorage.getItem('yoshibook_user');
-    const messageUser = messageElement.querySelector('.username').textContent.split(':')[0].trim();
-    
-    if (user && messageUser === user) {
-        showNotification('Delete this message?');
-        const notification = document.querySelector('.notification');
-        
-        const buttonContainer = document.createElement('div');
-        buttonContainer.className = 'notification-buttons';
-        
-        const confirmBtn = document.createElement('button');
-        confirmBtn.textContent = 'Delete';
-        confirmBtn.onclick = () => {
+    const user = localStorage.getItem('yoshibook_user') || null;
+    if (!user) {
+        showNotification('You must be logged in to delete messages.');
+        return;
+    }
+
+    const usernameEl = messageElement.querySelector('.username');
+    const messageUser = usernameEl ? usernameEl.textContent.split(':')[0].trim() : null;
+
+    if (messageUser === user) {
+        showConfirm('Delete this message?', () => {
+            // confirm
             const messageRef = ref(database, `messages/${messageKey}`);
             remove(messageRef)
                 .then(() => {
                     messageElement.remove();
-                    notification.remove();
+                    showNotification('Message deleted');
                 })
                 .catch(handleFirebaseError);
-        };
-        
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.onclick = () => notification.remove();
-        
-        buttonContainer.appendChild(confirmBtn);
-        buttonContainer.appendChild(cancelBtn);
-        notification.appendChild(buttonContainer);
+        }, () => {
+            // canceled
+        });
+    } else {
+        showNotification('You can only delete your own messages');
     }
 }
 
+// Display message
+function displayMessage(messageData = {}, messageKey) {
+    // Defensive defaults
+    const displayName = messageData.displayName || 'Anonymous';
+    const messageText = messageData.messageText || '';
+    const timestamp = messageData.timestamp || (messageData.createdAt ? new Date(messageData.createdAt).toLocaleTimeString() : '');
+
+    const currentUser = localStorage.getItem('yoshibook_user');
+    const isCurrentUser = displayName === currentUser;
+
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', isCurrentUser ? 'user' : 'other');
+
+    // Add username and text
+    const usernameSpan = document.createElement('span');
+    usernameSpan.className = 'username';
+    usernameSpan.textContent = `${escapeHtml(displayName)}:`;
+
+    const textDiv = document.createElement('div');
+    textDiv.className = 'message-text';
+    textDiv.innerHTML = escapeHtml(messageText);
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'timestamp';
+    timeSpan.textContent = timestamp;
+
+    messageElement.appendChild(usernameSpan);
+    messageElement.appendChild(textDiv);
+    messageElement.appendChild(timeSpan);
+
+    if (isCurrentUser && currentUser !== 'Anonymous') {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerText = '×';
+        deleteBtn.title = 'Delete message';
+        deleteBtn.onclick = () => deleteMessage(messageKey, messageElement);
+        messageElement.appendChild(deleteBtn);
+    }
+
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// load messages (use query limitToLast to avoid loading entire DB)
 function loadMessages() {
     if (messagesLoaded) return;
     messagesLoaded = true;
 
-    const messagesRef = ref(database, 'messages');
+    // load the most recent 100 messages by default
+    const messagesRefQuery = query(ref(database, 'messages'), limitToLast(100));
     const chatMessages = document.getElementById('chat-messages');
-    chatMessages.innerHTML = '';
-    
-    onChildAdded(messagesRef, (snapshot) => {
+    if (chatMessages) chatMessages.innerHTML = '';
+
+    onChildAdded(messagesRefQuery, (snapshot) => {
         const messageData = snapshot.val();
         displayMessage(messageData, snapshot.key);
     });
 }
 
-function displayMessage(messageData, messageKey) {
-    const currentUser = localStorage.getItem('yoshibook_user');
-    const isCurrentUser = messageData.displayName === currentUser;
-    
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message');
-    messageElement.classList.add(isCurrentUser ? 'user' : 'other');
-    
-    messageElement.innerHTML = `
-        <span class="username">${escapeHtml(messageData.displayName)}:</span>
-        <div class="message-text">${escapeHtml(messageData.messageText)}</div>
-        <span class="timestamp">${messageData.timestamp}</span>
-    `;
-    
-    if (isCurrentUser && currentUser !== 'Anonymous') {
-        const deleteBtn = document.createElement('button');
-        deleteBtn.classList.add('delete-btn');
-        deleteBtn.innerText = '×';
-        deleteBtn.onclick = () => window.deleteMessage(messageKey, messageElement);
-        messageElement.appendChild(deleteBtn);
-    }
-    
-    const chatMessages = document.getElementById('chat-messages');
-    chatMessages.appendChild(messageElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// Auth functions
+// Authentication UI helpers
 function showLoginModal() {
-    document.getElementById('loginModal').style.display = 'flex';
+    const modal = document.getElementById('loginModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        const input = document.getElementById('loginUsername');
+        if (input) input.focus();
+    }
 }
 
 function showSignupModal() {
-    document.getElementById('signupModal').style.display = 'flex';
+    const modal = document.getElementById('signupModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        const input = document.getElementById('signupUsername');
+        if (input) input.focus();
+    }
 }
 
-function handleLogin(event) {
-    event.preventDefault();
-    const username = document.getElementById('loginUsername').value.trim();
-    const password = document.getElementById('loginPassword').value;
+// We use SHA-256 hashing on the client for stored passwords (improvement over plaintext)
+// NOTE: client-side hashing is not a replacement for server-side auth. Migrate to Firebase Auth ASAP.
+async function hashPassword(password) {
+    const enc = new TextEncoder();
+    const data = enc.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+}
 
-    const userRef = ref(database, `usedDisplayNames/${username}`);
-    get(userRef).then((snapshot) => {
-        if (snapshot.exists() && snapshot.val() === password) {
-            setCookie('yoshibook_user', username, 7); // Store for 7 days
+// login handler for modal login (works with login.html handler pattern too)
+async function handleLogin(event) {
+    if (event && event.preventDefault) event.preventDefault();
+
+    const username = (document.getElementById('loginUsername')?.value || '').trim();
+    const password = (document.getElementById('loginPassword')?.value || '');
+
+    if (!username || !password) {
+        alert('Please enter username and password');
+        return;
+    }
+
+    try {
+        const userRef = ref(database, 'usedDisplayNames');
+        const snap = await get(userRef);
+        const userMap = snap.exists() ? snap.val() : {};
+
+        // If username doesn't exist
+        if (!userMap[username]) {
+            alert('Invalid username or password');
+            return;
+        }
+
+        const hashed = await hashPassword(password);
+        if (userMap[username] === hashed) {
+            setCookie('yoshibook_user', username, 7);
             localStorage.setItem('yoshibook_user', username);
-            document.getElementById('loginModal').style.display = 'none';
+            const modal = document.getElementById('loginModal');
+            if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
             updateAuthDisplay();
             updateMessagePositions();
+            showNotification('Logged in');
         } else {
             alert('Invalid username or password');
         }
-    }).catch(handleFirebaseError);
+    } catch (err) {
+        handleFirebaseError(err);
+    }
 }
 
-function handleSignup(event) {
-    event.preventDefault();
-    const username = document.getElementById('signupUsername').value.trim();
-    const password = document.getElementById('signupPassword').value;
+// signup handler (from modal)
+async function handleSignup(event) {
+    if (event && event.preventDefault) event.preventDefault();
 
-    // Check for spaces and special characters
+    const username = (document.getElementById('signupUsername')?.value || '').trim();
+    const password = (document.getElementById('signupPassword')?.value || '');
+
+    if (!username || !password) {
+        alert('Please enter a username and password');
+        return;
+    }
+
     if (!/^[a-zA-Z0-9]+$/.test(username)) {
         alert('Username can only contain letters and numbers');
         return;
     }
 
-    const normalizedUsername = username.toLowerCase(); // Convert to lowercase for comparison
-    const userRef = ref(database, 'usedDisplayNames');
-    
-    get(userRef).then((snapshot) => {
-        const existingUsernames = snapshot.val() || {};
-        const existingNormalizedUsernames = Object.keys(existingUsernames).map(name => name.toLowerCase());
-        
-        if (existingNormalizedUsernames.includes(normalizedUsername)) {
+    try {
+        const userRef = ref(database, 'usedDisplayNames');
+        const snap = await get(userRef);
+        const existing = snap.exists() ? snap.val() : {};
+
+        // case-insensitive unique check
+        const normalizedRequested = username.toLowerCase();
+        const existingNormalized = Object.keys(existing).map(k => k.toLowerCase());
+        if (existingNormalized.includes(normalizedRequested)) {
             alert('Username already taken');
             return;
         }
 
-        set(ref(database, `usedDisplayNames/${username}`), password)
-            .then(() => {
-                localStorage.setItem('yoshibook_user', username);
-                document.getElementById('signupModal').style.display = 'none';
-                updateAuthDisplay();
-            })
-            .catch(handleFirebaseError);
-    }).catch(handleFirebaseError);
+        const hashed = await hashPassword(password);
+        await set(ref(database, `usedDisplayNames/${username}`), hashed);
+
+        localStorage.setItem('yoshibook_user', username);
+        const modal = document.getElementById('signupModal');
+        if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
+        updateAuthDisplay();
+        showNotification('Account created and logged in');
+    } catch (err) {
+        handleFirebaseError(err);
+    }
 }
 
+// logout
 function logout() {
     localStorage.removeItem('yoshibook_user');
+    // expire cookie
     document.cookie = 'yoshibook_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     updateAuthDisplay();
     updateMessagePositions();
+    showNotification('Logged out');
 }
 
+// update UI auth area
 function updateAuthDisplay() {
     const user = localStorage.getItem('yoshibook_user');
     const authButtons = document.querySelector('.auth-buttons');
-    
+    if (!authButtons) return;
+
     if (user) {
         authButtons.innerHTML = `
-            <span class="user-display">Welcome, ${user}</span>
-            <button class="auth-btn login-btn" onclick="logout()">Logout</button>
+            <span class="user-display" style="color:white;margin-right:10px;font-weight:500;">Welcome, ${escapeHtml(user)}</span>
+            <button class="auth-btn login-btn" id="logoutBtn">Logout</button>
         `;
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) logoutBtn.addEventListener('click', logout);
     } else {
         authButtons.innerHTML = `
-            <button class="auth-btn login-btn" onclick="showLoginModal()">Login</button>
-            <button class="auth-btn signup-btn" onclick="showSignupModal()">Sign Up</button>
+            <button class="auth-btn login-btn" id="loginBtnHeader">Login</button>
+            <button class="auth-btn signup-btn" id="signupBtnHeader">Sign Up</button>
         `;
+        document.getElementById('loginBtnHeader')?.addEventListener('click', showLoginModal);
+        document.getElementById('signupBtnHeader')?.addEventListener('click', showSignupModal);
     }
+
+    // Ensure messages are loaded once user info changes
     loadMessages();
 }
 
-// Utility functions
+// update message bubble positions (user vs other)
+function updateMessagePositions() {
+    const currentUser = localStorage.getItem('yoshibook_user');
+    const messages = document.querySelectorAll('.message');
+    messages.forEach(message => {
+        const username = message.querySelector('.username')?.textContent.split(':')[0].trim() || '';
+        message.classList.remove('user', 'other');
+        if (username === currentUser) message.classList.add('user'); else message.classList.add('other');
+    });
+}
+
+// Keydown handler for the message input (Enter handled by form submit)
 function handleKeyDown(event) {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
         sendMessage();
     }
 }
 
+// basic firebase error handler
 function handleFirebaseError(error) {
     console.error('Firebase error:', error);
-    alert('An error occurred. Please try again later.');
+    alert('A network or server error occurred. Please try again later.');
 }
 
-function escapeHtml(unsafe) {
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-// Add function to update message positions
-function updateMessagePositions() {
-    const currentUser = localStorage.getItem('yoshibook_user');
-    const messages = document.querySelectorAll('.message');
-    
-    messages.forEach(message => {
-        const username = message.querySelector('.username').textContent.split(':')[0].trim();
-        message.classList.remove('user', 'other');
-        message.classList.add(username === currentUser ? 'user' : 'other');
-    });
-}
-
-// Make sure to export all functions to window
+// Export functions to global scope for the HTML to call
 const exportedFunctions = {
     showLoginModal,
     showSignupModal,
@@ -301,64 +434,56 @@ const exportedFunctions = {
     deleteMessage,
     handleKeyDown
 };
-
 Object.assign(window, exportedFunctions);
 
-// Initialize on page load
+// Initialization on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     const cookieUser = getCookie('yoshibook_user');
-    if (cookieUser) {
-        localStorage.setItem('yoshibook_user', cookieUser);
-    }
+    if (cookieUser) localStorage.setItem('yoshibook_user', cookieUser);
     updateAuthDisplay();
     loadMessages();
-    
-    // Close modals when clicking outside
-    window.onclick = function(event) {
-        if (event.target.className === 'modal') {
-            event.target.style.display = 'none';
-        }
-    };
-ages'), () => {
-});   
 
-/**
- * Every PRUNE_INTERVAL_MS milliseconds, scan *all* messages and
- * delete every 4th+ duplicate (leaving only the first three of each text).
- */
-const PRUNE_INTERVAL_MS = 5000; // 🔧 change this to whatever interval you like
+    // Attach keyboard shortcut for input if needed
+    const messageInput = document.getElementById('message-input');
+    if (messageInput) messageInput.addEventListener('keydown', handleKeyDown);
+
+    // Close modals when clicking outside — handled in HTML page script as well
+});
+
+// PRUNING logic: runs rarely, only checks recent messages (limit 500) and runs every 5 minutes.
+// IMPORTANT: For a production system move pruning and heavy-lifting to server-side/cloud functions.
+const PRUNE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function pruneRepeatingMessages() {
-  const messagesRef = ref(database, 'messages');
-  try {
-    const snap = await get(messagesRef);
-    if (!snap.exists()) return;
+    try {
+        const messagesRefQuery = query(ref(database, 'messages'), orderByChild('createdAt'), limitToLast(500));
+        const snap = await get(messagesRefQuery);
+        if (!snap.exists()) return;
 
-    const all = snap.val();
-    const groups = {};
+        const all = snap.val();
+        const groups = {};
 
-    // Group by messageText
-    Object.entries(all).forEach(([key, msg]) => {
-      const text = msg.messageText;
-      if (!groups[text]) groups[text] = [];
-      groups[text].push({ key, createdAt: msg.createdAt });
-    });
-
-    // For each group with > 3, delete everything after the third oldest
-    Object.values(groups).forEach(arr => {
-      if (arr.length > 3) {
-        arr.sort((a, b) => a.createdAt - b.createdAt);
-        arr.slice(3).forEach(({ key }) => {
-          remove(ref(database, `messages/${key}`)).catch(console.error);
+        Object.entries(all).forEach(([key, msg]) => {
+            // Use the message text normalized to reduce near-duplicates; trim extra spaces.
+            const text = (msg.messageText || '').trim();
+            if (!groups[text]) groups[text] = [];
+            const createdAt = msg.createdAt || Date.now();
+            groups[text].push({ key, createdAt });
         });
-      }
-    });
 
-  } catch (e) {
-    console.error('Error pruning repeating messages:', e);
-  }
+        Object.values(groups).forEach(arr => {
+            if (arr.length > 3) {
+                arr.sort((a, b) => a.createdAt - b.createdAt);
+                arr.slice(3).forEach(({ key }) => {
+                    remove(ref(database, `messages/${key}`)).catch(err => console.error('Prune remove error', err));
+                });
+            }
+        });
+    } catch (e) {
+        console.error('Error pruning repeating messages:', e);
+    }
 }
 
-// Kick off immediate run, then repeat every PRUNE_INTERVAL_MS
+// start pruning at interval (safe: doesn't read whole DB)
 pruneRepeatingMessages();
 setInterval(pruneRepeatingMessages, PRUNE_INTERVAL_MS);
