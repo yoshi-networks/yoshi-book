@@ -38,6 +38,26 @@ body {
     position: relative;
 }
 
+/* Ensure header link (Yoshibook text) appears white and not underlined */
+.header-link,
+.chat-header h2 a {
+    color: white !important;
+    text-decoration: none !important;
+    outline: none;
+}
+
+/* Keep hover/focus/visited also white and not underlined */
+.header-link:hover,
+.chat-header h2 a:hover,
+.header-link:focus,
+.chat-header h2 a:focus,
+.header-link:visited,
+.chat-header h2 a:visited {
+    color: white !important;
+    text-decoration: none !important;
+    opacity: 0.95;
+}
+
 .auth-buttons {
     display: flex;
     gap: 10px;
