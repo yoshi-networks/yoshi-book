@@ -17,6 +17,10 @@
 /* fonts */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
+* {
+    box-sizing: border-box;
+}
+
 body {
     font-family: 'Poppins', sans-serif;
     background-color: var(--background-color);
@@ -125,15 +129,18 @@ body {
 }
 
 /* message bubbles */
+/* IMPORTANT: padding-right reserves space for the timestamp so it can't overlap the text */
 .message {
     max-width: 78%;
-    padding: 10px 14px;
+    padding: 10px 14px 14px 14px; /* top-right-bottom-left */
+    padding-right: 84px; /* reserve space for timestamp */
     margin: 0;
     border-radius: 14px;
     position: relative;
     animation: messageAppear 0.24s ease;
     word-break: break-word;
     align-self: flex-start;
+    background-clip: padding-box;
 }
 
 @keyframes messageAppear {
@@ -175,15 +182,26 @@ body {
 .message .message-text {
     white-space: pre-wrap;
     font-size: 0.95rem;
+    margin-right: 6px; /* small space before timestamp area */
 }
 
 /* timestamp style */
+/* bottom-right positioned inside the bubble, using reserved padding so it doesn't overlap text */
 .message .timestamp {
     position: absolute;
-    right: 10px;
-    bottom: 6px;
+    right: 12px;
+    bottom: 8px;
     font-size: 0.72rem;
-    opacity: 0.7;
+    opacity: 0.8;
+    line-height: 1;
+    pointer-events: none;
+    white-space: nowrap;
+    color: rgba(0,0,0,0.6);
+}
+
+/* timestamp color adjustment for user messages */
+.message.user .timestamp {
+    color: rgba(255,255,255,0.85);
 }
 
 /* input area */
@@ -423,6 +441,9 @@ body {
 
 /* small screens: responsive layout */
 @media (max-width: 640px) {
-    .message { max-width: 92%; }
+    .message { 
+        max-width: 92%; 
+        padding-right: 80px; /* keep timestamp space on narrow screens */
+    }
     .chat-messages { padding: 12px; }
 }
