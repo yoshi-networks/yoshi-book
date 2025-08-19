@@ -302,7 +302,6 @@ async function pruneRepeatingMessages() {
             if (arr.length > 3) {
                 arr.sort((a, b) => a.createdAt - b.createdAt);
                 const toDelete = arr.slice(3);
-                // delete sequentially to avoid bursts
                 for (const item of toDelete) {
                     try {
                         await remove(ref(database, `messages/${item.key}`));
@@ -321,8 +320,7 @@ async function pruneRepeatingMessages() {
 pruneRepeatingMessages();
 setInterval(pruneRepeatingMessages, PRUNE_INTERVAL_MS);
 
-// Authentication UI helpers and remaining functions
-
+// Authentication UI helpers and the rest remain unchanged and exported
 function showLoginModal() {
     const modal = document.getElementById('loginModal');
     if (modal) {
@@ -341,6 +339,11 @@ function showSignupModal() {
         const input = document.getElementById('signupUsername');
         if (input) input.focus();
     }
+}
+
+// helper for detecting sha256 hex
+function looksLikeSha256Hex(s) {
+    return typeof s === 'string' && /^[a-f0-9]{64}$/i.test(s);
 }
 
 async function hashPassword(password) {
@@ -373,18 +376,44 @@ async function handleLogin(event) {
             return;
         }
 
-        const hashed = await hashPassword(password);
-        if (userMap[username] === hashed) {
+        const stored = userMap[username];
+        const hashedInput = await hashPassword(password);
+
+        if (looksLikeSha256Hex(stored)) {
+            if (stored.toLowerCase() === hashedInput.toLowerCase()) {
+                setCookie('yoshibook_user', username, 7);
+                localStorage.setItem('yoshibook_user', username);
+                const modal = document.getElementById('loginModal');
+                if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
+                updateAuthDisplay();
+                updateMessagePositions();
+                showNotification('Logged in');
+            } else {
+                alert('Invalid username or password');
+            }
+            return;
+        }
+
+        // stored appears to be plaintext (legacy). Accept plaintext match and migrate to hash.
+        if (stored === password) {
+            const hashed = hashedInput;
+            try {
+                await set(ref(database, `usedDisplayNames/${username}`), hashed);
+                console.log(`Migrated plaintext password for ${username} to SHA-256 hash.`);
+            } catch (e) {
+                console.warn('Failed to migrate plaintext password to hash (non-fatal):', e);
+            }
             setCookie('yoshibook_user', username, 7);
             localStorage.setItem('yoshibook_user', username);
             const modal = document.getElementById('loginModal');
             if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
             updateAuthDisplay();
             updateMessagePositions();
-            showNotification('Logged in');
-        } else {
-            alert('Invalid username or password');
+            showNotification('Logged in (legacy account migrated)');
+            return;
         }
+
+        alert('Invalid username or password');
     } catch (err) {
         handleFirebaseError(err);
     }
