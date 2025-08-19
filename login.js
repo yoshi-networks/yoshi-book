@@ -35,6 +35,11 @@ async function hashPassword(password) {
     return hashHex;
 }
 
+/** Return true if the stored value looks like a SHA-256 hex (64 hex chars) */
+function looksLikeSha256Hex(s) {
+    return typeof s === 'string' && /^[a-f0-9]{64}$/i.test(s);
+}
+
 /**
  * Basic defensive escape (if you ended up rendering anything from the DB on this page).
  */
@@ -51,6 +56,9 @@ function escapeHtml(unsafe) {
 /**
  * handleLogin handles both login and signup in the same form by toggling dataset.mode.
  * For signup we store username => hashedPassword (not plaintext).
+ *
+ * Login accepts either stored-hash or stored-plaintext. If stored plaintext matches, it
+ * will migrate the DB entry to the hashed value for future logins.
  */
 async function handleLogin(event) {
     event.preventDefault();
@@ -79,7 +87,7 @@ async function handleLogin(event) {
         const snap = await get(usersRef);
         const existing = snap.exists() ? snap.val() : {};
 
-        // Normalize comparison for uniqueness
+        // Normalize comparison for uniqueness when signing up
         const normalizedRequested = username.toLowerCase();
         const existingNormalized = Object.keys(existing).map(k => k.toLowerCase());
 
@@ -94,22 +102,52 @@ async function handleLogin(event) {
             localStorage.setItem('yoshibook_user', username);
             alert('Account created — you are now logged in.');
             window.location.href = 'chat.html';
-        } else {
-            // login mode
-            // Check exact username key exists
-            if (!existing[username]) {
-                alert('Invalid username or password');
-                return;
-            }
-            const hashed = await hashPassword(password);
-            if (existing[username] === hashed) {
+            return;
+        }
+
+        // LOGIN mode:
+        if (!existing.hasOwnProperty(username)) {
+            alert('Invalid username or password');
+            return;
+        }
+
+        const stored = existing[username];
+
+        // If stored looks like a SHA-256 hex, compare hashes
+        const hashedInput = await hashPassword(password);
+
+        if (looksLikeSha256Hex(stored)) {
+            if (stored.toLowerCase() === hashedInput.toLowerCase()) {
+                // success
                 localStorage.setItem('yoshibook_user', username);
                 alert('Login successful');
                 window.location.href = 'chat.html';
-            } else {
-                alert('Invalid username or password');
+                return;
             }
+            // mismatch -> fail
+            alert('Invalid username or password');
+            return;
         }
+
+        // If stored does NOT look like a hash, treat it as plaintext (legacy).
+        // First try direct plaintext match; if it matches, migrate the DB entry to the hashed value.
+        if (stored === password) {
+            // migrate to hash
+            const hashed = hashedInput;
+            try {
+                await set(ref(database, `usedDisplayNames/${username}`), hashed);
+                console.log(`Migrated plaintext password for ${username} to SHA-256 hash.`);
+            } catch (e) {
+                console.warn('Failed to migrate plaintext password to hash (non-fatal):', e);
+            }
+            localStorage.setItem('yoshibook_user', username);
+            alert('Login successful (legacy account migrated to secure storage)');
+            window.location.href = 'chat.html';
+            return;
+        }
+
+        // Last attempt: it's possible stored value is something else (different encoding); fail safely.
+        alert('Invalid username or password');
     } catch (err) {
         console.error('Login error', err);
         alert('An error occurred during login. Try again later.');
