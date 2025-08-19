@@ -129,11 +129,12 @@ body {
 }
 
 /* message bubbles */
-/* IMPORTANT: padding-right reserves space for the timestamp so it can't overlap the text */
+/* Layout changed to CSS grid: left column is message content, right column is fixed timestamp.
+   This prevents the message text from flowing underneath the timestamp. */
 .message {
     max-width: 78%;
-    padding: 10px 14px 14px 14px; /* top-right-bottom-left */
-    padding-right: 84px; /* reserve space for timestamp */
+    /* padding: top right bottom left */
+    padding: 10px 14px 14px 14px;
     margin: 0;
     border-radius: 14px;
     position: relative;
@@ -141,8 +142,13 @@ body {
     word-break: break-word;
     align-self: flex-start;
     background-clip: padding-box;
+
+    display: grid;
+    grid-template-columns: 1fr auto; /* flexible text column + auto-width timestamp column */
+    grid-column-gap: 12px;
 }
 
+/* Keep the enter animation */
 @keyframes messageAppear {
     from {
         opacity: 0;
@@ -171,28 +177,29 @@ body {
     align-self: flex-start;
 }
 
-/* username and text */
+/* child elements take the left grid column by default */
 .message .username {
     display: block;
     font-weight: 600;
     margin-bottom: 6px;
     font-size: 0.88rem;
+    grid-column: 1 / 2; /* explicit: stay in left column */
 }
 
 .message .message-text {
     white-space: pre-wrap;
     font-size: 0.95rem;
-    margin-right: 6px; /* small space before timestamp area */
+    margin: 0;
+    grid-column: 1 / 2; /* left column */
 }
 
-/* timestamp style */
-/* bottom-right positioned inside the bubble, using reserved padding so it doesn't overlap text */
+/* timestamp sits in the right column and is bottom-aligned */
 .message .timestamp {
-    position: absolute;
-    right: 12px;
-    bottom: 8px;
+    grid-column: 2 / 3; /* right column */
+    align-self: end;     /* bottom align the timestamp */
+    justify-self: end;   /* right-align inside column */
     font-size: 0.72rem;
-    opacity: 0.8;
+    opacity: 0.85;
     line-height: 1;
     pointer-events: none;
     white-space: nowrap;
@@ -202,6 +209,27 @@ body {
 /* timestamp color adjustment for user messages */
 .message.user .timestamp {
     color: rgba(255,255,255,0.85);
+}
+
+/* delete button: keep top-right but nudge left slightly so it doesn't collide with timestamp on narrow messages */
+.delete-btn {
+    position: absolute;
+    top: 6px;
+    right: 36px; /* nudged left slightly from earlier 6px to avoid collisions */
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.8);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 6px;
+}
+
+.message.other .delete-btn {
+    color: rgba(0,0,0,0.6);
+}
+
+.delete-btn:hover {
+    color: rgba(255,0,0,0.9);
 }
 
 /* input area */
@@ -318,27 +346,6 @@ body {
     background-color: var(--secondary-color);
 }
 
-/* delete button on message */
-.delete-btn {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    background: transparent;
-    border: none;
-    color: rgba(255,255,255,0.8);
-    cursor: pointer;
-    font-size: 18px;
-    padding: 6px;
-}
-
-.message.other .delete-btn {
-    color: rgba(0,0,0,0.6);
-}
-
-.delete-btn:hover {
-    color: rgba(255,0,0,0.9);
-}
-
 /* notification */
 .notification {
     position: fixed;
@@ -442,8 +449,8 @@ body {
 /* small screens: responsive layout */
 @media (max-width: 640px) {
     .message { 
-        max-width: 92%; 
-        padding-right: 80px; /* keep timestamp space on narrow screens */
+        max-width: 92%;
+        grid-template-columns: 1fr auto; /* keep timestamp column even on narrow screens */
     }
     .chat-messages { padding: 12px; }
 }
