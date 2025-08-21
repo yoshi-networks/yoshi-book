@@ -32,7 +32,7 @@ const database = getDatabase(app);
 
 let messagesLoaded = false;
 
-// BAD WORDS LIST (kept as requested). Note: storing slurs in code can be sensitive.
+// BAD WORDS LIST (kept as requested).
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
     'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
@@ -61,7 +61,7 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
-// Cookies utilities (kept but improved)
+// Cookies utilities
 function setCookie(name, value, days) {
     const expires = new Date();
     expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -182,9 +182,8 @@ function deleteMessage(messageKey, messageElement) {
     }
 }
 
-// Display message (now sets dataset.key so we can remove it on deletions)
+// Display message
 function displayMessage(messageData = {}, messageKey) {
-    // Defensive defaults
     const displayName = messageData.displayName || 'Anonymous';
     const messageText = messageData.messageText || '';
     const timestamp = messageData.timestamp || (messageData.createdAt ? new Date(messageData.createdAt).toLocaleTimeString() : '');
@@ -195,10 +194,8 @@ function displayMessage(messageData = {}, messageKey) {
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', isCurrentUser ? 'user' : 'other');
 
-    // tag the element with the DB key so we can find it on child_removed
     if (messageKey) messageElement.dataset.key = messageKey;
 
-    // Add username and text
     const usernameSpan = document.createElement('span');
     usernameSpan.className = 'username';
     usernameSpan.textContent = `${escapeHtml(displayName)}:`;
@@ -230,7 +227,7 @@ function displayMessage(messageData = {}, messageKey) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// onChildRemoved handler: remove element from DOM when DB item removed
+// onChildRemoved handler
 function handleChildRemoved(snapshot) {
     const key = snapshot.key;
     if (!key) return;
@@ -240,7 +237,7 @@ function handleChildRemoved(snapshot) {
     if (el) el.remove();
 }
 
-// load messages (use limitToLast to avoid huge initial UI load)
+// load messages
 function loadMessages() {
     if (messagesLoaded) return;
     messagesLoaded = true;
@@ -254,15 +251,12 @@ function loadMessages() {
         displayMessage(messageData, snapshot.key);
     });
 
-    // listen for removed children so UI stays in sync
     onChildRemoved(ref(database, 'messages'), handleChildRemoved);
 }
 
 /**
- * pruneRepeatingMessages:
- * - Reads whole /messages node with get() (no orderByChild used -> no indexOn required)
- * - Normalizes each message's text (collapse whitespace, trim, toLowerCase)
- * - Keeps the first 3 occurrences (by createdAt ascending if available), deletes the rest
+ * pruneRepeatingMessages: keep first 3 occurrences (by createdAt if available), delete rest.
+ * Reads full /messages node with get() (no orderByChild -> no index required).
  */
 const PRUNE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -275,11 +269,10 @@ async function pruneRepeatingMessages() {
         const all = snap.val();
         const groups = {};
 
-        // Group by normalized text
         Object.entries(all).forEach(([key, msg]) => {
             const rawText = (msg && msg.messageText) ? String(msg.messageText) : '';
             const normalized = rawText.replace(/\s+/g, ' ').trim().toLowerCase();
-            if (!normalized) return; // skip empty messages
+            if (!normalized) return;
             if (!groups[normalized]) groups[normalized] = [];
             let createdAt = msg && msg.createdAt;
             if (typeof createdAt === 'object' && createdAt !== null) createdAt = Date.now();
@@ -287,7 +280,6 @@ async function pruneRepeatingMessages() {
             groups[normalized].push({ key, createdAt });
         });
 
-        // For each group, keep the three oldest (smallest createdAt), delete the rest
         for (const normalizedText in groups) {
             const arr = groups[normalizedText];
             if (arr.length > 3) {
@@ -307,11 +299,11 @@ async function pruneRepeatingMessages() {
     }
 }
 
-// start pruning at interval
+// start pruning
 pruneRepeatingMessages();
 setInterval(pruneRepeatingMessages, PRUNE_INTERVAL_MS);
 
-// Authentication UI helpers and the rest remain unchanged and exported
+// Auth UI helpers (signup/login use plaintext)
 function showLoginModal() {
     const modal = document.getElementById('loginModal');
     if (modal) {
@@ -332,11 +324,7 @@ function showSignupModal() {
     }
 }
 
-/**
- * NOTE: This version uses plaintext passwords per user request.
- * handleLogin/handleSignup below compare and store plaintext passwords.
- */
-
+// Plaintext login/signup for the in-chat modals
 async function handleLogin(event) {
     if (event && event.preventDefault) event.preventDefault();
 
@@ -360,7 +348,7 @@ async function handleLogin(event) {
 
         const stored = userMap[username];
 
-        // Plaintext comparison (per requested behavior)
+        // Plaintext comparison
         if (stored === password) {
             setCookie('yoshibook_user', username, 7);
             localStorage.setItem('yoshibook_user', username);
@@ -372,7 +360,6 @@ async function handleLogin(event) {
             return;
         }
 
-        // mismatch
         alert('Invalid username or password');
     } catch (err) {
         handleFirebaseError(err);
@@ -449,7 +436,6 @@ function updateAuthDisplay() {
         document.getElementById('signupBtnHeader')?.addEventListener('click', showSignupModal);
     }
 
-    // Ensure messages are loaded once user info changes
     loadMessages();
 }
 
