@@ -5,7 +5,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
 import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
-// Same config as the chat page (keep consistent)
+// Firebase config (keep consistent with other files)
 const firebaseConfig = {
     apiKey: "AIzaSyCdnPP1xNfe13SuDNuaP2rOL6_WcbPN8cI",
     authDomain: "yoshibook-ba4ca.firebaseapp.com",
@@ -36,25 +36,26 @@ function escapeHtml(unsafe) {
 
 /**
  * handleLogin handles both login and signup in the same form by toggling dataset.mode.
- * NOTE: This implementation stores and compares plaintext passwords (per your request).
+ * NOTE: Per your request, this implementation stores and compares plaintext passwords.
  */
 async function handleLogin(event) {
     event.preventDefault();
+
     const form = document.getElementById('loginForm');
-    const mode = form.dataset.mode === 'signup' ? 'signup' : 'login';
+    const mode = form && form.dataset.mode === 'signup' ? 'signup' : 'login';
 
     const usernameEl = document.getElementById('username');
     const passwordEl = document.getElementById('password');
 
-    const username = usernameEl.value.trim();
-    const password = passwordEl.value;
+    const username = usernameEl ? usernameEl.value.trim() : '';
+    const password = passwordEl ? passwordEl.value : '';
 
     if (!username || !password) {
         alert('Please enter a username and password.');
         return;
     }
 
-    // Validate username: alphanumeric only (same rule as chat page)
+    // Validate username: alphanumeric only
     if (!/^[a-zA-Z0-9]+$/.test(username)) {
         alert('Username can only contain letters and numbers');
         return;
@@ -74,7 +75,7 @@ async function handleLogin(event) {
                 alert('Username already taken');
                 return;
             }
-            // store plaintext password (user requested behavior)
+            // Store plaintext password (per request)
             await set(ref(database, `usedDisplayNames/${username}`), password);
             localStorage.setItem('yoshibook_user', username);
             alert('Account created — you are now logged in.');
@@ -106,5 +107,5 @@ async function handleLogin(event) {
     }
 }
 
-// export function to window so inline HTML handlers can call it
+// expose to window so inline handlers work
 window.handleLogin = handleLogin;
