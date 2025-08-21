@@ -129,11 +129,9 @@ body {
 }
 
 /* message bubbles */
-/* Layout changed to CSS grid: left column is message content, right column is fixed timestamp.
-   This prevents the message text from flowing underneath the timestamp. */
+/* Layout changed to grid for timestamp alignment (left = content, right = time) */
 .message {
     max-width: 78%;
-    /* padding: top right bottom left */
     padding: 10px 14px 14px 14px;
     margin: 0;
     border-radius: 14px;
@@ -144,7 +142,7 @@ body {
     background-clip: padding-box;
 
     display: grid;
-    grid-template-columns: 1fr auto; /* flexible text column + auto-width timestamp column */
+    grid-template-columns: 1fr auto;
     grid-column-gap: 12px;
 }
 
@@ -183,21 +181,21 @@ body {
     font-weight: 600;
     margin-bottom: 6px;
     font-size: 0.88rem;
-    grid-column: 1 / 2; /* explicit: stay in left column */
+    grid-column: 1 / 2;
 }
 
 .message .message-text {
     white-space: pre-wrap;
     font-size: 0.95rem;
     margin: 0;
-    grid-column: 1 / 2; /* left column */
+    grid-column: 1 / 2;
 }
 
 /* timestamp sits in the right column and is bottom-aligned */
 .message .timestamp {
-    grid-column: 2 / 3; /* right column */
-    align-self: end;     /* bottom align the timestamp */
-    justify-self: end;   /* right-align inside column */
+    grid-column: 2 / 3;
+    align-self: end;
+    justify-self: end;
     font-size: 0.72rem;
     opacity: 0.85;
     line-height: 1;
@@ -211,25 +209,37 @@ body {
     color: rgba(255,255,255,0.85);
 }
 
-/* delete button: keep top-right but nudge left slightly so it doesn't collide with timestamp on narrow messages */
+/* delete button: TOP RIGHT corner of the bubble */
 .delete-btn {
     position: absolute;
-    top: 6px;
-    right: 36px; /* nudged left slightly from earlier 6px to avoid collisions */
-    background: transparent;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    background: rgba(0,0,0,0.12);
     border: none;
-    color: rgba(255,255,255,0.8);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    font-size: 18px;
-    padding: 6px;
+    font-size: 16px;
+    line-height: 1;
+    transition: background 0.12s ease, transform 0.12s ease;
+    padding: 0;
 }
 
+/* darken for other messages (make icon visible) */
 .message.other .delete-btn {
-    color: rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.06);
+    color: rgba(0,0,0,0.7);
 }
 
 .delete-btn:hover {
-    color: rgba(255,0,0,0.9);
+    transform: translateY(-2px);
+    background: rgba(0,0,0,0.18);
 }
 
 /* input area */
@@ -448,7 +458,7 @@ body {
 
 /* small screens: responsive layout */
 @media (max-width: 640px) {
-    .message { 
+    .message {
         max-width: 92%;
         grid-template-columns: 1fr auto; /* keep timestamp column even on narrow screens */
     }
