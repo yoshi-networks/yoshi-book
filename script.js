@@ -35,7 +35,7 @@ let messagesLoaded = false;
 // BAD WORDS LIST (kept as requested).
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
+    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'nigga', 'kai', 'job'
 ];
 
 // filterBadWords: preserve case and match whole words only
