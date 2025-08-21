@@ -156,59 +156,124 @@ function sendMessage() {
 }
 
 /**
- * deleteMessage:
- * - Robustly verifies the message owner by reading the DB record for the message key
- * - Allows deletion only if the DB displayName matches the logged-in user (case-insensitive)
- * - Shows a confirmation dialog and then removes the DB value
+ * Robust deleteMessage:
+ * - Verifies owner by reading DB record at the provided key.
+ * - If key missing or DB read fails, scans messages for matching candidate(s)
+ *   using displayName (case-insensitive), messageText and timestamp.
+ * - Confirms with the user before deleting.
  */
 async function deleteMessage(messageKey, messageElement) {
-    const loggedInUser = localStorage.getItem('yoshibook_user') || null;
+    const loggedInUser = localStorage.getItem('yoshibook_user') || getCookie('yoshibook_user') || null;
     if (!loggedInUser) {
         showNotification('You must be logged in to delete messages.');
         return;
     }
 
-    if (!messageKey) {
-        showNotification('Unable to identify message to delete.');
-        return;
+    // Helper: case-insensitive equality
+    const eqCI = (a, b) => {
+        if (a === null || a === undefined || b === null || b === undefined) return false;
+        return String(a).toLowerCase() === String(b).toLowerCase();
+    };
+
+    // Try to use the key (or fallback to element.dataset.key)
+    let key = messageKey || (messageElement && messageElement.dataset && messageElement.dataset.key) || null;
+
+    // If we have a key, try reading that message from DB and verify owner
+    if (key) {
+        try {
+            const msgRef = ref(database, `messages/${key}`);
+            const snap = await get(msgRef);
+            if (snap.exists()) {
+                const msg = snap.val();
+                const owner = msg && msg.displayName ? String(msg.displayName) : '';
+                if (!eqCI(owner, loggedInUser)) {
+                    showNotification('You can only delete your own messages.');
+                    return;
+                }
+                // Confirm and delete
+                showConfirm('Delete this message?', async () => {
+                    try {
+                        await remove(msgRef);
+                        // Remove DOM element immediately for snappier UX; onChildRemoved will also keep UI consistent.
+                        if (messageElement && messageElement.remove) messageElement.remove();
+                        showNotification('Message deleted');
+                    } catch (err) {
+                        console.error('Failed to delete message:', err);
+                        showNotification('Failed to delete message — try again.');
+                    }
+                }, () => {});
+                return;
+            }
+            // if snapshot not exists, fall through to scanning fallback
+        } catch (err) {
+            console.warn('Error reading message by key, falling back to scan:', err);
+            // fall through to fallback scan
+        }
     }
 
+    // Fallback scan: try to find candidate message(s) owned by the user that match the text/timestamp in the element
     try {
-        // Read the message directly from DB to verify owner
-        const msgRef = ref(database, `messages/${messageKey}`);
-        const snap = await get(msgRef);
-        if (!snap.exists()) {
-            showNotification('Message not found (it may have been removed).');
+        const elementText = (messageElement?.querySelector('.message-text')?.textContent || '').trim();
+        const elementTimestamp = (messageElement?.querySelector('.timestamp')?.textContent || '').trim();
+        const elementUsername = (messageElement?.querySelector('.username')?.textContent || '').replace(/:$/, '').trim();
+
+        const allSnap = await get(ref(database, 'messages'));
+        if (!allSnap.exists()) {
+            showNotification('Message not found.');
             if (messageElement && messageElement.remove) messageElement.remove();
             return;
         }
+        const all = allSnap.val();
 
-        const msg = snap.val();
-        const owner = (msg && msg.displayName) ? String(msg.displayName) : '';
+        // Build list of candidates: owner matches (ci) and text matches and timestamp matches (if available)
+        const candidates = [];
+        Object.entries(all).forEach(([k, msg]) => {
+            if (!msg) return;
+            const owner = msg.displayName || '';
+            const text = (msg.messageText || '').toString();
+            const ts = (msg.timestamp || '').toString();
 
-        // case-insensitive comparison for robustness
-        if (owner.toLowerCase() !== loggedInUser.toLowerCase()) {
-            showNotification('You can only delete your own messages.');
+            if (!eqCI(owner, loggedInUser)) return; // only consider user's own messages
+
+            // Match message text exactly (trimmed) and prefer timestamp match if possible
+            const textMatch = (String(text).trim() === String(elementText).trim());
+            const tsMatch = elementTimestamp ? (String(ts).trim() === String(elementTimestamp).trim()) : true;
+
+            if (textMatch && tsMatch) {
+                candidates.push({ key: k, createdAt: msg.createdAt || Date.now(), msg });
+            } else if (textMatch && !tsMatch) {
+                // looser candidate (text matches but timestamp doesn't)
+                candidates.push({ key: k, createdAt: msg.createdAt || Date.now(), msg, loose: true });
+            }
+        });
+
+        if (candidates.length === 0) {
+            showNotification('Could not identify the message to delete.');
             return;
         }
 
-        // Confirm & delete
+        // Prefer candidates without the 'loose' flag; sort by createdAt descending (newer first)
+        candidates.sort((a, b) => a.createdAt - b.createdAt);
+        // choose the newest matching one (closest to the element)
+        const chosen = candidates[candidates.length - 1];
+
+        const confirmKey = chosen.key;
+        const msgRef2 = ref(database, `messages/${confirmKey}`);
+
         showConfirm('Delete this message?', async () => {
             try {
-                await remove(msgRef);
-                // UI will be updated by onChildRemoved listener. Remove now just in case.
+                await remove(msgRef2);
                 if (messageElement && messageElement.remove) messageElement.remove();
                 showNotification('Message deleted');
             } catch (err) {
-                console.error('Failed to delete message:', err);
+                console.error('Fallback delete failed:', err);
                 showNotification('Failed to delete message — try again.');
             }
-        }, () => {
-            // cancelled
-        });
+        }, () => {});
+
     } catch (err) {
-        console.error('deleteMessage error:', err);
-        showNotification('Error checking message ownership.');
+        console.error('Fallback scan error while attempting delete:', err);
+        showNotification('Unable to delete message right now.');
     }
 }
 
@@ -220,7 +285,7 @@ function displayMessage(messageData = {}, messageKey) {
     const messageText = messageData.messageText || '';
     const timestamp = messageData.timestamp || (messageData.createdAt ? new Date(messageData.createdAt).toLocaleTimeString() : '');
 
-    const currentUser = localStorage.getItem('yoshibook_user') || '';
+    const currentUser = localStorage.getItem('yoshibook_user') || getCookie('yoshibook_user') || '';
     const isCurrentUser = (String(displayName).toLowerCase() === String(currentUser).toLowerCase());
 
     const messageElement = document.createElement('div');
@@ -232,7 +297,6 @@ function displayMessage(messageData = {}, messageKey) {
     // Add username and text
     const usernameSpan = document.createElement('span');
     usernameSpan.className = 'username';
-    // Use textContent with raw displayName so text isn't double-escaped in DOM
     usernameSpan.textContent = `${displayName}:`;
 
     const textDiv = document.createElement('div');
@@ -254,10 +318,15 @@ function displayMessage(messageData = {}, messageKey) {
         deleteBtn.innerText = '×';
         deleteBtn.title = 'Delete message';
         deleteBtn.setAttribute('aria-label', 'Delete message');
-        // prevent click from bubbling to parent
+
+        // store key on button for fallback (helps debugging and fallback logic)
+        if (messageKey) deleteBtn.dataset.key = messageKey;
+
+        // prevent click from bubbling to parent and call robust delete
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            deleteMessage(messageKey, messageElement);
+            const kb = deleteBtn.dataset.key || messageKey || messageElement.dataset.key;
+            deleteMessage(kb, messageElement);
         });
         messageElement.appendChild(deleteBtn);
     }
