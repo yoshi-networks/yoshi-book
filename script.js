@@ -35,7 +35,7 @@ let messagesLoaded = false;
 // BAD WORDS LIST (kept as requested).
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'nigga', 'kai', 'job'
+    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
 ];
 
 // filterBadWords: preserve case and match whole words only
@@ -155,54 +155,89 @@ function sendMessage() {
         .catch(handleFirebaseError);
 }
 
-// delete message with confirmation and permission check
-function deleteMessage(messageKey, messageElement) {
-    const user = localStorage.getItem('yoshibook_user') || null;
-    if (!user) {
+/**
+ * deleteMessage:
+ * - Robustly verifies the message owner by reading the DB record for the message key
+ * - Allows deletion only if the DB displayName matches the logged-in user (case-insensitive)
+ * - Shows a confirmation dialog and then removes the DB value
+ */
+async function deleteMessage(messageKey, messageElement) {
+    const loggedInUser = localStorage.getItem('yoshibook_user') || null;
+    if (!loggedInUser) {
         showNotification('You must be logged in to delete messages.');
         return;
     }
 
-    const usernameEl = messageElement.querySelector('.username');
-    const messageUser = usernameEl ? usernameEl.textContent.split(':')[0].trim() : null;
+    if (!messageKey) {
+        showNotification('Unable to identify message to delete.');
+        return;
+    }
 
-    if (messageUser === user) {
-        showConfirm('Delete this message?', () => {
-            const messageRef = ref(database, `messages/${messageKey}`);
-            remove(messageRef)
-                .then(() => {
-                    showNotification('Message deleted');
-                })
-                .catch(handleFirebaseError);
+    try {
+        // Read the message directly from DB to verify owner
+        const msgRef = ref(database, `messages/${messageKey}`);
+        const snap = await get(msgRef);
+        if (!snap.exists()) {
+            showNotification('Message not found (it may have been removed).');
+            if (messageElement && messageElement.remove) messageElement.remove();
+            return;
+        }
+
+        const msg = snap.val();
+        const owner = (msg && msg.displayName) ? String(msg.displayName) : '';
+
+        // case-insensitive comparison for robustness
+        if (owner.toLowerCase() !== loggedInUser.toLowerCase()) {
+            showNotification('You can only delete your own messages.');
+            return;
+        }
+
+        // Confirm & delete
+        showConfirm('Delete this message?', async () => {
+            try {
+                await remove(msgRef);
+                // UI will be updated by onChildRemoved listener. Remove now just in case.
+                if (messageElement && messageElement.remove) messageElement.remove();
+                showNotification('Message deleted');
+            } catch (err) {
+                console.error('Failed to delete message:', err);
+                showNotification('Failed to delete message — try again.');
+            }
         }, () => {
-            // canceled
+            // cancelled
         });
-    } else {
-        showNotification('You can only delete your own messages');
+    } catch (err) {
+        console.error('deleteMessage error:', err);
+        showNotification('Error checking message ownership.');
     }
 }
 
-// Display message
+// Display message (now sets dataset.key so we can remove it on deletions)
+// Also shows delete button using case-insensitive match
 function displayMessage(messageData = {}, messageKey) {
+    // Defensive defaults
     const displayName = messageData.displayName || 'Anonymous';
     const messageText = messageData.messageText || '';
     const timestamp = messageData.timestamp || (messageData.createdAt ? new Date(messageData.createdAt).toLocaleTimeString() : '');
 
-    const currentUser = localStorage.getItem('yoshibook_user');
-    const isCurrentUser = displayName === currentUser;
+    const currentUser = localStorage.getItem('yoshibook_user') || '';
+    const isCurrentUser = (String(displayName).toLowerCase() === String(currentUser).toLowerCase());
 
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', isCurrentUser ? 'user' : 'other');
 
+    // tag the element with the DB key so we can find it on child_removed
     if (messageKey) messageElement.dataset.key = messageKey;
 
+    // Add username and text
     const usernameSpan = document.createElement('span');
     usernameSpan.className = 'username';
-    usernameSpan.textContent = `${escapeHtml(displayName)}:`;
+    // Use textContent with raw displayName so text isn't double-escaped in DOM
+    usernameSpan.textContent = `${displayName}:`;
 
     const textDiv = document.createElement('div');
     textDiv.className = 'message-text';
-    textDiv.innerHTML = escapeHtml(messageText);
+    textDiv.textContent = messageText;
 
     const timeSpan = document.createElement('span');
     timeSpan.className = 'timestamp';
@@ -212,12 +247,18 @@ function displayMessage(messageData = {}, messageKey) {
     messageElement.appendChild(textDiv);
     messageElement.appendChild(timeSpan);
 
+    // only add delete button when current user matches owner (case-insensitive)
     if (isCurrentUser && currentUser !== 'Anonymous') {
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
         deleteBtn.innerText = '×';
         deleteBtn.title = 'Delete message';
-        deleteBtn.onclick = () => deleteMessage(messageKey, messageElement);
+        deleteBtn.setAttribute('aria-label', 'Delete message');
+        // prevent click from bubbling to parent
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteMessage(messageKey, messageElement);
+        });
         messageElement.appendChild(deleteBtn);
     }
 
@@ -227,7 +268,7 @@ function displayMessage(messageData = {}, messageKey) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// onChildRemoved handler
+// onChildRemoved handler: remove element from DOM when DB item removed
 function handleChildRemoved(snapshot) {
     const key = snapshot.key;
     if (!key) return;
@@ -237,7 +278,7 @@ function handleChildRemoved(snapshot) {
     if (el) el.remove();
 }
 
-// load messages
+// load messages (use limitToLast to avoid huge initial UI load)
 function loadMessages() {
     if (messagesLoaded) return;
     messagesLoaded = true;
@@ -251,12 +292,18 @@ function loadMessages() {
         displayMessage(messageData, snapshot.key);
     });
 
+    // listen for removed children so UI stays in sync
     onChildRemoved(ref(database, 'messages'), handleChildRemoved);
 }
 
 /**
- * pruneRepeatingMessages: keep first 3 occurrences (by createdAt if available), delete rest.
- * Reads full /messages node with get() (no orderByChild -> no index required).
+ * pruneRepeatingMessages:
+ * - Reads whole /messages node with get() (no orderByChild used -> no indexOn required)
+ * - Normalizes each message's text (collapse whitespace, trim, toLowerCase)
+ * - Keeps the first 3 occurrences (by createdAt ascending if available), deletes the rest
+ *
+ * WARNING: this reads the entire /messages node and will cost reads on large datasets.
+ * For production move this logic to a Cloud Function.
  */
 const PRUNE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -269,17 +316,23 @@ async function pruneRepeatingMessages() {
         const all = snap.val();
         const groups = {};
 
+        // Group by normalized text
         Object.entries(all).forEach(([key, msg]) => {
             const rawText = (msg && msg.messageText) ? String(msg.messageText) : '';
+            // normalization: collapse whitespace, trim, lower-case
             const normalized = rawText.replace(/\s+/g, ' ').trim().toLowerCase();
-            if (!normalized) return;
+            if (!normalized) return; // skip empty messages
             if (!groups[normalized]) groups[normalized] = [];
+            // createdAt may be a number, or a server-timestamp placeholder; handle both
             let createdAt = msg && msg.createdAt;
-            if (typeof createdAt === 'object' && createdAt !== null) createdAt = Date.now();
+            if (typeof createdAt === 'object' && createdAt !== null) {
+                createdAt = Date.now();
+            }
             if (typeof createdAt !== 'number') createdAt = Date.now();
             groups[normalized].push({ key, createdAt });
         });
 
+        // For each group, keep the three oldest (smallest createdAt), delete the rest
         for (const normalizedText in groups) {
             const arr = groups[normalizedText];
             if (arr.length > 3) {
@@ -299,11 +352,11 @@ async function pruneRepeatingMessages() {
     }
 }
 
-// start pruning
+// start pruning at interval
 pruneRepeatingMessages();
 setInterval(pruneRepeatingMessages, PRUNE_INTERVAL_MS);
 
-// Auth UI helpers (signup/login use plaintext)
+// Authentication UI helpers and the rest remain unchanged and exported
 function showLoginModal() {
     const modal = document.getElementById('loginModal');
     if (modal) {
@@ -324,7 +377,8 @@ function showSignupModal() {
     }
 }
 
-// Plaintext login/signup for the in-chat modals
+// NOTE: login/signup are plaintext per your last request
+
 async function handleLogin(event) {
     if (event && event.preventDefault) event.preventDefault();
 
@@ -348,7 +402,7 @@ async function handleLogin(event) {
 
         const stored = userMap[username];
 
-        // Plaintext comparison
+        // Plaintext comparison (per requested behavior)
         if (stored === password) {
             setCookie('yoshibook_user', username, 7);
             localStorage.setItem('yoshibook_user', username);
@@ -436,6 +490,7 @@ function updateAuthDisplay() {
         document.getElementById('signupBtnHeader')?.addEventListener('click', showSignupModal);
     }
 
+    // Ensure messages are loaded once user info changes
     loadMessages();
 }
 
@@ -445,7 +500,7 @@ function updateMessagePositions() {
     messages.forEach(message => {
         const username = message.querySelector('.username')?.textContent.split(':')[0].trim() || '';
         message.classList.remove('user', 'other');
-        if (username === currentUser) message.classList.add('user'); else message.classList.add('other');
+        if (username.toLowerCase() === (currentUser || '').toLowerCase()) message.classList.add('user'); else message.classList.add('other');
     });
 }
 
