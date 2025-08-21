@@ -35,7 +35,7 @@ let messagesLoaded = false;
 // BAD WORDS LIST (kept as requested). Note: storing slurs in code can be sensitive.
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'nigga', 'job', 'kai'
+    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
 ];
 
 // filterBadWords: preserve case and match whole words only
@@ -172,7 +172,6 @@ function deleteMessage(messageKey, messageElement) {
             remove(messageRef)
                 .then(() => {
                     showNotification('Message deleted');
-                    // the element will be removed by onChildRemoved listener
                 })
                 .catch(handleFirebaseError);
         }, () => {
@@ -264,9 +263,6 @@ function loadMessages() {
  * - Reads whole /messages node with get() (no orderByChild used -> no indexOn required)
  * - Normalizes each message's text (collapse whitespace, trim, toLowerCase)
  * - Keeps the first 3 occurrences (by createdAt ascending if available), deletes the rest
- *
- * WARNING: this reads the entire /messages node and will cost reads on large datasets.
- * For production move this logic to a Cloud Function.
  */
 const PRUNE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -282,16 +278,11 @@ async function pruneRepeatingMessages() {
         // Group by normalized text
         Object.entries(all).forEach(([key, msg]) => {
             const rawText = (msg && msg.messageText) ? String(msg.messageText) : '';
-            // normalization: collapse whitespace, trim, lower-case
             const normalized = rawText.replace(/\s+/g, ' ').trim().toLowerCase();
             if (!normalized) return; // skip empty messages
             if (!groups[normalized]) groups[normalized] = [];
-            // createdAt may be a number, or a server-timestamp placeholder; handle both
             let createdAt = msg && msg.createdAt;
-            if (typeof createdAt === 'object' && createdAt !== null) {
-                // fallback if server placeholder object present
-                createdAt = Date.now();
-            }
+            if (typeof createdAt === 'object' && createdAt !== null) createdAt = Date.now();
             if (typeof createdAt !== 'number') createdAt = Date.now();
             groups[normalized].push({ key, createdAt });
         });
@@ -341,19 +332,10 @@ function showSignupModal() {
     }
 }
 
-// helper for detecting sha256 hex
-function looksLikeSha256Hex(s) {
-    return typeof s === 'string' && /^[a-f0-9]{64}$/i.test(s);
-}
-
-async function hashPassword(password) {
-    const enc = new TextEncoder();
-    const data = enc.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return hashHex;
-}
+/**
+ * NOTE: This version uses plaintext passwords per user request.
+ * handleLogin/handleSignup below compare and store plaintext passwords.
+ */
 
 async function handleLogin(event) {
     if (event && event.preventDefault) event.preventDefault();
@@ -377,42 +359,20 @@ async function handleLogin(event) {
         }
 
         const stored = userMap[username];
-        const hashedInput = await hashPassword(password);
 
-        if (looksLikeSha256Hex(stored)) {
-            if (stored.toLowerCase() === hashedInput.toLowerCase()) {
-                setCookie('yoshibook_user', username, 7);
-                localStorage.setItem('yoshibook_user', username);
-                const modal = document.getElementById('loginModal');
-                if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
-                updateAuthDisplay();
-                updateMessagePositions();
-                showNotification('Logged in');
-            } else {
-                alert('Invalid username or password');
-            }
-            return;
-        }
-
-        // stored appears to be plaintext (legacy). Accept plaintext match and migrate to hash.
+        // Plaintext comparison (per requested behavior)
         if (stored === password) {
-            const hashed = hashedInput;
-            try {
-                await set(ref(database, `usedDisplayNames/${username}`), hashed);
-                console.log(`Migrated plaintext password for ${username} to SHA-256 hash.`);
-            } catch (e) {
-                console.warn('Failed to migrate plaintext password to hash (non-fatal):', e);
-            }
             setCookie('yoshibook_user', username, 7);
             localStorage.setItem('yoshibook_user', username);
             const modal = document.getElementById('loginModal');
             if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
             updateAuthDisplay();
             updateMessagePositions();
-            showNotification('Logged in (legacy account migrated)');
+            showNotification('Logged in');
             return;
         }
 
+        // mismatch
         alert('Invalid username or password');
     } catch (err) {
         handleFirebaseError(err);
@@ -447,8 +407,8 @@ async function handleSignup(event) {
             return;
         }
 
-        const hashed = await hashPassword(password);
-        await set(ref(database, `usedDisplayNames/${username}`), hashed);
+        // Store plaintext password (per request)
+        await set(ref(database, `usedDisplayNames/${username}`), password);
 
         localStorage.setItem('yoshibook_user', username);
         const modal = document.getElementById('signupModal');
