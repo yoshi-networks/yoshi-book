@@ -1,4 +1,4 @@
-// script.js (module) - updated with robust delete handling & debug UI
+// script.js (module) - updated with robust delete handling & debug UI (fixed & complete)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
 import {
     getDatabase,
@@ -134,19 +134,36 @@ function showConfirm(message, onConfirm, onCancel) {
     confirmBox.setAttribute('role', 'alertdialog');
     confirmBox.setAttribute('aria-modal', 'true');
     confirmBox.style.zIndex = '99998';
+    confirmBox.style.position = 'fixed';
+    confirmBox.style.left = '50%';
+    confirmBox.style.top = '50%';
+    confirmBox.style.transform = 'translate(-50%, -50%)';
+    confirmBox.style.background = '#fff';
+    confirmBox.style.color = '#000';
+    confirmBox.style.padding = '16px';
+    confirmBox.style.borderRadius = '8px';
+    confirmBox.style.boxShadow = '0 8px 30px rgba(0,0,0,0.2)';
+    confirmBox.style.minWidth = '260px';
+    confirmBox.style.maxWidth = '90%';
 
     const text = document.createElement('div');
+    text.id = 'confirmText';
     text.textContent = message;
 
     const buttons = document.createElement('div');
     buttons.style.display = 'flex';
     buttons.style.gap = '8px';
     buttons.style.marginTop = '12px';
+    buttons.style.justifyContent = 'flex-end';
 
     const ok = document.createElement('button');
     ok.textContent = 'Delete';
     ok.style.backgroundColor = '#f44336';
     ok.style.color = '#fff';
+    ok.style.border = 'none';
+    ok.style.padding = '8px 12px';
+    ok.style.borderRadius = '6px';
+    ok.style.cursor = 'pointer';
     ok.onclick = () => {
         onConfirm && onConfirm();
         confirmBox.remove();
@@ -154,16 +171,22 @@ function showConfirm(message, onConfirm, onCancel) {
 
     const cancel = document.createElement('button');
     cancel.textContent = 'Cancel';
+    cancel.style.background = '#e0e0e0';
+    cancel.style.border = 'none';
+    cancel.style.padding = '8px 12px';
+    cancel.style.borderRadius = '6px';
+    cancel.style.cursor = 'pointer';
     cancel.onclick = () => {
         onCancel && onCancel();
         confirmBox.remove();
     };
 
-    buttons.appendChild(ok);
     buttons.appendChild(cancel);
+    buttons.appendChild(ok);
     confirmBox.appendChild(text);
     confirmBox.appendChild(buttons);
     document.body.appendChild(confirmBox);
+    ok.focus();
 }
 
 /* ---------------------------
@@ -232,7 +255,7 @@ async function deleteMessage(messageKey, messageElement) {
             const snap = await get(msgRef);
 
             if (!snap.exists()) {
-                console.warn('Message key found but DB snapshot missing. Key:', key);
+                console.warn('Provided key not found in DB:', key);
                 // fallback to scanning
             } else {
                 const msg = snap.val();
@@ -298,10 +321,16 @@ async function deleteMessage(messageKey, messageElement) {
             const tsMatch = elementTimestamp ? String(ts).trim() === String(elementTimestamp).trim() : true;
 
             if (textMatch && tsMatch) {
-                candidates.push({ key: k, createdAt: msg.createdAt || Date.now(), msg });
+                let createdAt = msg && msg.createdAt;
+                if (typeof createdAt === 'object' && createdAt !== null) createdAt = Date.now();
+                if (typeof createdAt !== 'number') createdAt = Date.now();
+                candidates.push({ key: k, createdAt, msg });
             } else if (textMatch) {
+                let createdAt = msg && msg.createdAt;
+                if (typeof createdAt === 'object' && createdAt !== null) createdAt = Date.now();
+                if (typeof createdAt !== 'number') createdAt = Date.now();
                 // looser match (no ts)
-                candidates.push({ key: k, createdAt: msg.createdAt || Date.now(), msg, loose: true });
+                candidates.push({ key: k, createdAt, msg, loose: true });
             }
         });
 
@@ -311,7 +340,7 @@ async function deleteMessage(messageKey, messageElement) {
             return;
         }
 
-        // prefer exact matches (without loose) and newest ones
+        // prefer exact matches and newest ones
         candidates.sort((a, b) => a.createdAt - b.createdAt);
         const chosen = candidates[candidates.length - 1];
         const confirmKey = chosen.key;
@@ -344,7 +373,7 @@ async function deleteMessage(messageKey, messageElement) {
 function displayMessage(messageData = {}, messageKey) {
     const displayName = messageData.displayName || 'Anonymous';
     const messageText = messageData.messageText || '';
-    const timestamp = messageData.timestamp || (messageData.createdAt ? new Date(messageData.createdAt).toLocaleTimeString() : '');
+    const timestamp = messageData.timestamp || (messageData.createdAt ? (typeof messageData.createdAt === 'number' ? new Date(messageData.createdAt).toLocaleTimeString() : '') : '');
 
     const currentUser = localStorage.getItem('yoshibook_user') || getCookie('yoshibook_user') || '';
     const isCurrentUser = (String(displayName).toLowerCase() === String(currentUser).toLowerCase());
@@ -354,6 +383,9 @@ function displayMessage(messageData = {}, messageKey) {
 
     // attach DB key
     if (messageKey) messageElement.dataset.key = messageKey;
+
+    // ensure container can position delete button
+    messageElement.style.position = 'relative';
 
     const usernameSpan = document.createElement('span');
     usernameSpan.className = 'username';
@@ -378,6 +410,18 @@ function displayMessage(messageData = {}, messageKey) {
         deleteBtn.innerText = '×';
         deleteBtn.title = 'Delete message';
         if (messageKey) deleteBtn.dataset.key = messageKey;
+
+        // style delete button to top-right
+        deleteBtn.style.position = 'absolute';
+        deleteBtn.style.top = '6px';
+        deleteBtn.style.right = '6px';
+        deleteBtn.style.border = 'none';
+        deleteBtn.style.background = 'transparent';
+        deleteBtn.style.fontSize = '18px';
+        deleteBtn.style.cursor = 'pointer';
+        deleteBtn.style.lineHeight = '1';
+        deleteBtn.style.padding = '2px 6px';
+
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const kb = deleteBtn.dataset.key || messageKey || messageElement.dataset.key;
@@ -416,7 +460,8 @@ function loadMessages() {
         displayMessage(messageData, snapshot.key);
     });
 
-    onChildRemoved(ref(database, 'messages'), handleChildRemoved);
+    // Attach removal listener to the same query so removals correspond to displayed subset
+    onChildRemoved(messagesRefQuery, handleChildRemoved);
 }
 
 /* Prune duplicates (keeps first 3) - unchanged approach */
@@ -496,11 +541,16 @@ async function handleLogin(event) {
         const userRef = ref(database, 'usedDisplayNames');
         const snap = await get(userRef);
         const userMap = snap.exists() ? snap.val() : {};
-        if (!userMap[username]) { alert('Invalid username or password'); return; }
-        const stored = userMap[username];
+
+        // case-insensitive lookup — find the exact stored key (preserves original case)
+        const storedKey = Object.keys(userMap || {}).find(k => k.toLowerCase() === username.toLowerCase());
+        if (!storedKey) { alert('Invalid username or password'); return; }
+
+        const stored = userMap[storedKey];
         if (stored === password) {
-            setCookie('yoshibook_user', username, 7);
-            localStorage.setItem('yoshibook_user', username);
+            // use the storedKey (original case) for session
+            setCookie('yoshibook_user', storedKey, 7);
+            localStorage.setItem('yoshibook_user', storedKey);
             const modal = document.getElementById('loginModal');
             if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
             updateAuthDisplay();
