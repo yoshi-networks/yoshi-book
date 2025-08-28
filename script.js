@@ -1,4 +1,4 @@
-// script.js (module) - updated with robust delete handling & debug UI (fixed & complete)
+// script.js (module) - updated to fix delete issues, robust matching, accessibility, and debug
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
 import {
     getDatabase,
@@ -68,7 +68,7 @@ function showDebugBanner(msg, timeout = 8000) {
 /* BAD WORDS LIST (unchanged) */
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot'
+    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai'
 ];
 
 function filterBadWords(text) {
@@ -192,30 +192,70 @@ function showConfirm(message, onConfirm, onCancel) {
 /* ---------------------------
    Main message functions
    --------------------------- */
+
+/* Debounce/throttle utilities */
+const _throttleMap = {};
+function setThrottle(key, ms) {
+    _throttleMap[key] = Date.now() + ms;
+}
+function isThrottled(key) {
+    return _throttleMap[key] && _throttleMap[key] > Date.now();
+}
+
+/* Send message
+   - Adds ownerNormalized (lowercased owner) and createdAtMillis (numeric ms timestamp)
+   - Keeps serverTimestamp() for server-side ordering when available
+*/
 function sendMessage() {
     const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('sendBtn'); // optional: add to your UI for throttle feedback
     if (!messageInput) return;
     const raw = messageInput.value.trim();
     if (!raw) return;
 
+    // basic throttle to avoid accidental duplicates
+    if (isThrottled('sendMessage')) {
+        showDebugBanner('Please wait a moment before sending another message.', 1800);
+        return;
+    }
+    setThrottle('sendMessage', 800); // 800ms throttle
+
     const filteredMessage = filterBadWords(raw);
     const user = localStorage.getItem('yoshibook_user') || 'Anonymous';
+    const nowMs = Date.now();
 
     const messageData = {
         displayName: user,
+        ownerNormalized: String(user || '').toLowerCase(),
         messageText: filteredMessage,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date(nowMs).toLocaleTimeString(),
         isUser: user !== 'Anonymous',
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),       // server-resolved timestamp (if you read it back, may become numeric)
+        createdAtMillis: nowMs              // numeric ms timestamp for local ordering & robust fallback
     };
 
     const messagesRef = ref(database, 'messages');
+
+    // disable quick re-send visual button if present
+    if (sendBtn) sendBtn.disabled = true;
+
     push(messagesRef, messageData)
-        .then(() => messageInput.value = '')
-        .catch(handleFirebaseError);
+        .then(() => {
+            messageInput.value = '';
+        })
+        .catch(handleFirebaseError)
+        .finally(() => {
+            if (sendBtn) {
+                setTimeout(() => { sendBtn.disabled = false; }, 800);
+            }
+        });
 }
 
-/* Robust deleteMessage with detailed debug & permission guidance */
+/* Robust deleteMessage with detailed debug & permission guidance
+   Handles:
+   - direct delete by key (if present)
+   - fallback scan by ownerNormalized + messageText + numeric timestamps
+*/
 async function deleteMessage(messageKey, messageElement) {
     const loggedInUser = (localStorage.getItem('yoshibook_user') || getCookie('yoshibook_user') || null);
     if (!loggedInUser) {
@@ -229,7 +269,7 @@ async function deleteMessage(messageKey, messageElement) {
         return String(a).toLowerCase() === String(b).toLowerCase();
     };
 
-    // pick key if present
+    // pick key if present (priority)
     let key = messageKey || (messageElement && messageElement.dataset && messageElement.dataset.key) || null;
 
     console.debug('Attempting delete', { providedKey: messageKey, domKey: messageElement?.dataset?.key, chosenKey: key, loggedInUser });
@@ -243,12 +283,12 @@ async function deleteMessage(messageKey, messageElement) {
                 usedDisplayNames: { ".read": true, ".write": true }
             }
         }, null, 2);
-        showDebugBanner(short + ' Click console for details.', 15000);
+        showDebugBanner(short + ' See console for details.', 15000);
         console.error('Permission denied when attempting to delete. Example rules to allow deletes (debugging only):\n', rulesSnippet);
         console.error('Original error:', err);
     }
 
-    // Try direct delete by key
+    // Try direct delete by key first
     if (key) {
         try {
             const msgRef = ref(database, `messages/${key}`);
@@ -256,13 +296,13 @@ async function deleteMessage(messageKey, messageElement) {
 
             if (!snap.exists()) {
                 console.warn('Provided key not found in DB:', key);
-                // fallback to scanning
+                // fallthrough to fallback scan
             } else {
                 const msg = snap.val();
-                const owner = msg && msg.displayName ? String(msg.displayName) : '';
-                console.debug('Message owner from DB:', owner, 'loggedInUser:', loggedInUser);
+                const owner = msg && (msg.ownerNormalized || (msg.displayName ? String(msg.displayName).toLowerCase() : '')) ;
+                console.debug('Message owner from DB (normalized):', owner, 'loggedInUser (normalized):', String(loggedInUser).toLowerCase());
 
-                if (!eqCI(owner, loggedInUser)) {
+                if (!eqCI(owner, String(loggedInUser).toLowerCase())) {
                     showNotification('You can only delete your own messages.');
                     console.warn('Delete blocked: owner mismatch', { owner, loggedInUser });
                     return;
@@ -295,6 +335,7 @@ async function deleteMessage(messageKey, messageElement) {
 
     // Fallback scan: match user's own messages that look like the DOM element
     try {
+        // grab content from DOM element if present
         const elementText = (messageElement?.querySelector('.message-text')?.textContent || '').trim();
         const elementTimestamp = (messageElement?.querySelector('.timestamp')?.textContent || '').trim();
         const elementUsername = (messageElement?.querySelector('.username')?.textContent || '').replace(/:$/, '').trim();
@@ -312,24 +353,30 @@ async function deleteMessage(messageKey, messageElement) {
         const candidates = [];
         Object.entries(all).forEach(([k, msg]) => {
             if (!msg) return;
-            const owner = msg.displayName || '';
+            const ownerNorm = (msg.ownerNormalized || (msg.displayName ? String(msg.displayName).toLowerCase() : ''));
             const text = (msg.messageText || '').toString();
-            const ts = (msg.timestamp || '').toString();
+            const tsString = (msg.timestamp || '').toString();
 
-            if (!eqCI(owner, loggedInUser)) return;
+            // get robust numeric createdAt candidate
+            let createdAt = null;
+            if (typeof msg.createdAtMillis === 'number') {
+                createdAt = msg.createdAtMillis;
+            } else if (typeof msg.createdAt === 'number') {
+                createdAt = msg.createdAt;
+            } else {
+                // serverTimestamp may show as an object placeholder if not resolved
+                createdAt = Date.now();
+            }
+
+            // only consider messages owned by the logged-in user (normalized match)
+            if (!eqCI(ownerNorm, String(loggedInUser).toLowerCase())) return;
+
             const textMatch = String(text).trim() === String(elementText).trim();
-            const tsMatch = elementTimestamp ? String(ts).trim() === String(elementTimestamp).trim() : true;
+            const tsMatch = elementTimestamp ? (String(tsString).trim() === String(elementTimestamp).trim()) : true;
 
             if (textMatch && tsMatch) {
-                let createdAt = msg && msg.createdAt;
-                if (typeof createdAt === 'object' && createdAt !== null) createdAt = Date.now();
-                if (typeof createdAt !== 'number') createdAt = Date.now();
-                candidates.push({ key: k, createdAt, msg });
+                candidates.push({ key: k, createdAt, msg, exact: true });
             } else if (textMatch) {
-                let createdAt = msg && msg.createdAt;
-                if (typeof createdAt === 'object' && createdAt !== null) createdAt = Date.now();
-                if (typeof createdAt !== 'number') createdAt = Date.now();
-                // looser match (no ts)
                 candidates.push({ key: k, createdAt, msg, loose: true });
             }
         });
@@ -340,8 +387,12 @@ async function deleteMessage(messageKey, messageElement) {
             return;
         }
 
-        // prefer exact matches and newest ones
-        candidates.sort((a, b) => a.createdAt - b.createdAt);
+        // prefer exact matches, then newest createdAt
+        candidates.sort((a, b) => {
+            if (a.exact && !b.exact) return 1;
+            if (!a.exact && b.exact) return -1;
+            return a.createdAt - b.createdAt;
+        });
         const chosen = candidates[candidates.length - 1];
         const confirmKey = chosen.key;
         const msgRef2 = ref(database, `messages/${confirmKey}`);
@@ -403,7 +454,7 @@ function displayMessage(messageData = {}, messageKey) {
     messageElement.appendChild(textDiv);
     messageElement.appendChild(timeSpan);
 
-    // add delete button only for owner
+    // add delete button only for owner (and not Anonymous)
     if (isCurrentUser && currentUser !== 'Anonymous') {
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
@@ -422,9 +473,22 @@ function displayMessage(messageData = {}, messageKey) {
         deleteBtn.style.lineHeight = '1';
         deleteBtn.style.padding = '2px 6px';
 
+        // accessibility
+        deleteBtn.setAttribute('aria-label', `Delete message from ${displayName}`);
+        deleteBtn.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                deleteBtn.click();
+            }
+        });
+
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const kb = deleteBtn.dataset.key || messageKey || messageElement.dataset.key;
+            // resolve key deterministically: dataset > argument > element dataset
+            const kb = deleteBtn.dataset.key || messageKey || messageElement.dataset.key || null;
+            if (!kb) {
+                console.warn('Delete clicked but no key available on button or element. Will attempt fallback scan.');
+            }
             deleteMessage(kb, messageElement);
         });
         messageElement.appendChild(deleteBtn);
@@ -464,7 +528,7 @@ function loadMessages() {
     onChildRemoved(messagesRefQuery, handleChildRemoved);
 }
 
-/* Prune duplicates (keeps first 3) - unchanged approach */
+/* Prune duplicates (keeps first 3) - unchanged approach with slight robustness */
 const PRUNE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function pruneRepeatingMessages() {
@@ -481,9 +545,11 @@ async function pruneRepeatingMessages() {
             const normalized = rawText.replace(/\s+/g, ' ').trim().toLowerCase();
             if (!normalized) return;
             if (!groups[normalized]) groups[normalized] = [];
-            let createdAt = msg && msg.createdAt;
-            if (typeof createdAt === 'object' && createdAt !== null) createdAt = Date.now();
-            if (typeof createdAt !== 'number') createdAt = Date.now();
+            let createdAt = msg && msg.createdAtMillis;
+            if (typeof createdAt !== 'number') {
+                if (typeof msg.createdAt === 'number') createdAt = msg.createdAt;
+                else createdAt = Date.now();
+            }
             groups[normalized].push({ key, createdAt });
         });
 
