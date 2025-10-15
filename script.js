@@ -68,7 +68,7 @@ function showDebugBanner(msg, timeout = 8000) {
 /* BAD WORDS LIST (unchanged) */
 const BAD_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai', 'fucking', 'kais'
+    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai', 'fucking', 'kais', 'niggers'
 ];
 
 function filterBadWords(text) {
