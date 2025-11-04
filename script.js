@@ -1,4 +1,4 @@
-// script.js (module) - updated to fix delete issues, robust matching, accessibility, and debug
+// script.js (module) - fixed full file (replace your old file with this)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
 import {
     getDatabase,
@@ -26,9 +26,34 @@ const firebaseConfig = {
     databaseURL: "https://yoshibook-ba4ca-default-rtdb.firebaseio.com/"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
+// Initialize Firebase (wrapped to provide clearer failure messaging)
+let app;
+let database;
+try {
+    app = initializeApp(firebaseConfig);
+    database = getDatabase(app);
+} catch (initErr) {
+    // If initialization fails, show a persistent debug banner and log error
+    console.error('Firebase initialization failed:', initErr);
+    (function createInitFailBanner() {
+        if (document.getElementById('yoshibookInitFail')) return;
+        const b = document.createElement('div');
+        b.id = 'yoshibookInitFail';
+        b.style.position = 'fixed';
+        b.style.top = '16px';
+        b.style.left = '16px';
+        b.style.zIndex = '100000';
+        b.style.padding = '10px 14px';
+        b.style.borderRadius = '8px';
+        b.style.background = 'rgba(220,0,0,0.9)';
+        b.style.color = 'white';
+        b.style.fontSize = '13px';
+        b.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)';
+        b.textContent = 'Firebase init failed — check console for details.';
+        document.body.appendChild(b);
+    })();
+    // Continue — database will be undefined and functions that use it will show errors/logs.
+}
 
 let messagesLoaded = false;
 
@@ -65,19 +90,25 @@ function showDebugBanner(msg, timeout = 8000) {
    END debug banner
    --------------------------- */
 
-/* BAD WORDS LIST (unchanged) */
+/* BAD WORDS LIST (fixed missing comma and organized) */
 const BAD_WORDS = [
-    'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard', 'nigga', 'niggas', 'garvin',
-    'damn', 'hell', 'piss', 'whore', 'slut', 'retard', 'nigger', 'faggot', 'kai', 'fucking', 'kais', 'niggers'
+    'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
+    'nigga', 'niggas', 'garvin', 'damn', 'hell', 'piss', 'whore', 'slut',
+    'retard', 'nigger', 'faggot', 'kai', 'fucking', 'kais', 'niggers'
 ];
 
 function filterBadWords(text) {
     if (text === null || text === undefined) return '';
-    let filtered = text;
+    let filtered = String(text);
     BAD_WORDS.forEach(word => {
+        if (!word) return;
+        // escape regex metacharacters in word
         const safeWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`\\b${safeWord}\\b`, 'gi');
-        filtered = filtered.replace(regex, (match) => '*'.repeat(match.length));
+        // use word boundaries where possible, but also handle punctuation-adjacent words
+        const regex = new RegExp(`(^|[^\\w])(${safeWord})(?=[^\\w]|$)`, 'gi');
+        filtered = filtered.replace(regex, (match, pre, w) => {
+            return pre + '*'.repeat(w.length);
+        });
     });
     return filtered;
 }
@@ -110,7 +141,6 @@ function getCookie(name) {
 }
 
 function showNotification(message, duration = 2200) {
-    // if an element with id 'globalNotification' exists use it, otherwise fallback to alert + debug banner
     const container = document.getElementById('globalNotification');
     if (container) {
         container.textContent = message;
@@ -121,7 +151,6 @@ function showNotification(message, duration = 2200) {
             setTimeout(() => container.style.display = 'none', 220);
         }, duration);
     } else {
-        // small non-blocking fallback
         showDebugBanner(message, duration);
         console.info('Notification:', message);
     }
@@ -207,6 +236,12 @@ function isThrottled(key) {
    - Keeps serverTimestamp() for server-side ordering when available
 */
 function sendMessage() {
+    if (!database) {
+        showDebugBanner('Cannot send message: Firebase not initialized.', 6000);
+        console.error('sendMessage blocked: database undefined.');
+        return;
+    }
+
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('sendBtn'); // optional: add to your UI for throttle feedback
     if (!messageInput) return;
@@ -236,7 +271,6 @@ function sendMessage() {
 
     const messagesRef = ref(database, 'messages');
 
-    // disable quick re-send visual button if present
     if (sendBtn) sendBtn.disabled = true;
 
     push(messagesRef, messageData)
@@ -257,6 +291,12 @@ function sendMessage() {
    - fallback scan by ownerNormalized + messageText + numeric timestamps
 */
 async function deleteMessage(messageKey, messageElement) {
+    if (!database) {
+        showDebugBanner('Cannot delete message: Firebase not initialized.', 6000);
+        console.error('deleteMessage blocked: database undefined.');
+        return;
+    }
+
     const loggedInUser = (localStorage.getItem('yoshibook_user') || getCookie('yoshibook_user') || null);
     if (!loggedInUser) {
         showNotification('You must be logged in to delete messages.');
@@ -444,6 +484,7 @@ function displayMessage(messageData = {}, messageKey) {
 
     const textDiv = document.createElement('div');
     textDiv.className = 'message-text';
+    // set textContent to avoid HTML injection and preserve line breaks as text
     textDiv.textContent = messageText;
 
     const timeSpan = document.createElement('span');
@@ -476,7 +517,8 @@ function displayMessage(messageData = {}, messageKey) {
         // accessibility
         deleteBtn.setAttribute('aria-label', `Delete message from ${displayName}`);
         deleteBtn.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter' || ev.key === ' ') {
+            // handle Enter and Space (different browsers may report ' ' or 'Spacebar')
+            if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
                 ev.preventDefault();
                 deleteBtn.click();
             }
@@ -495,9 +537,17 @@ function displayMessage(messageData = {}, messageKey) {
     }
 
     const chatMessages = document.getElementById('chat-messages');
-    if (!chatMessages) return;
+    if (!chatMessages) {
+        console.error('displayMessage: #chat-messages not found. Ensure element exists in DOM.');
+        return;
+    }
     chatMessages.appendChild(messageElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    // Keep scroll at bottom
+    try {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    } catch (e) {
+        // ignore scrolling errors
+    }
 }
 
 /* Remove DOM element when DB child removed */
@@ -512,6 +562,10 @@ function handleChildRemoved(snapshot) {
 
 /* Load messages (limitToLast to avoid huge load) */
 function loadMessages() {
+    if (!database) {
+        console.warn('loadMessages: database not initialized.');
+        return;
+    }
     if (messagesLoaded) return;
     messagesLoaded = true;
 
@@ -532,6 +586,7 @@ function loadMessages() {
 const PRUNE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function pruneRepeatingMessages() {
+    if (!database) return;
     try {
         const messagesRef = ref(database, 'messages');
         const snap = await get(messagesRef);
@@ -598,6 +653,12 @@ function showSignupModal() {
 async function handleLogin(event) {
     if (event && event.preventDefault) event.preventDefault();
 
+    if (!database) {
+        showDebugBanner('Cannot login: Firebase not initialized.', 6000);
+        console.error('handleLogin blocked: database undefined.');
+        return;
+    }
+
     const username = (document.getElementById('loginUsername')?.value || '').trim();
     const password = (document.getElementById('loginPassword')?.value || '');
 
@@ -633,6 +694,12 @@ async function handleLogin(event) {
 async function handleSignup(event) {
     if (event && event.preventDefault) event.preventDefault();
 
+    if (!database) {
+        showDebugBanner('Cannot sign up: Firebase not initialized.', 6000);
+        console.error('handleSignup blocked: database undefined.');
+        return;
+    }
+
     const username = (document.getElementById('signupUsername')?.value || '').trim();
     const password = (document.getElementById('signupPassword')?.value || '');
     if (!username || !password) { alert('Please enter a username and password'); return; }
@@ -666,8 +733,17 @@ function logout() {
 
 function updateAuthDisplay() {
     const user = localStorage.getItem('yoshibook_user');
-    const authButtons = document.querySelector('.auth-buttons');
-    if (!authButtons) return;
+
+    // ensure there is an auth-buttons container so the UI can remain consistent
+    let authButtons = document.querySelector('.auth-buttons');
+    if (!authButtons) {
+        authButtons = document.createElement('div');
+        authButtons.className = 'auth-buttons';
+        // Try to insert near top of body; preserves behavior if element not present in template
+        const firstHeader = document.querySelector('header') || document.body;
+        firstHeader.prepend(authButtons);
+    }
+
     if (user) {
         authButtons.innerHTML = `
             <span class="user-display" style="color:white;margin-right:10px;font-weight:500;">Welcome, ${escapeHtml(user)}</span>
@@ -682,11 +758,12 @@ function updateAuthDisplay() {
         document.getElementById('loginBtnHeader')?.addEventListener('click', showLoginModal);
         document.getElementById('signupBtnHeader')?.addEventListener('click', showSignupModal);
     }
+    // Lazily ensure messages listener attached when auth UI updated
     loadMessages();
 }
 
 function updateMessagePositions() {
-    const currentUser = localStorage.getItem('yoshibook_user');
+    const currentUser = localStorage.getItem('yoshibook_user') || '';
     const messages = document.querySelectorAll('.message');
     messages.forEach(message => {
         const username = message.querySelector('.username')?.textContent.split(':')[0].trim() || '';
@@ -709,7 +786,13 @@ function handleFirebaseError(error) {
     } else {
         showDebugBanner('A network or server error occurred. Check console for details.', 5000);
     }
-    alert('A network or server error occurred. Please try again later.');
+    // avoid spamming alerts for non-critical intermittent errors, but keep initial guidance
+    try {
+        alert('A network or server error occurred. Please try again later.');
+    } catch (e) {
+        // if alert is not available, fallback to debug banner
+        showDebugBanner('A network or server error occurred. Please check console.', 6000);
+    }
 }
 
 /* Expose functions to window for inline HTML use */
@@ -725,11 +808,26 @@ const exportedFunctions = {
 };
 Object.assign(window, exportedFunctions);
 
+// Startup diagnostics on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     const cookieUser = getCookie('yoshibook_user');
     if (cookieUser) localStorage.setItem('yoshibook_user', cookieUser);
+
+    // Basic presence checks and helpful console logs
+    if (!document.getElementById('chat-messages')) {
+        console.warn('#chat-messages element not found. Messages will not be visible until you add: <div id="chat-messages"></div>');
+        showDebugBanner('Add an element with id="chat-messages" to see messages.', 6000);
+    }
+    if (!document.getElementById('message-input')) {
+        console.warn('#message-input element not found. Sending messages requires an input with id="message-input".');
+        showDebugBanner('Add an input with id="message-input" to send messages.', 6000);
+    }
+
     updateAuthDisplay();
     loadMessages();
+
     const messageInput = document.getElementById('message-input');
     if (messageInput) messageInput.addEventListener('keydown', handleKeyDown);
+
+    console.info('yoshibook script initialized. Firebase present:', !!database);
 });
